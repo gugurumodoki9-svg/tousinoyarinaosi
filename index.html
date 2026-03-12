@@ -786,9 +786,14 @@ window.doGoogleLogin = async () => {
   } catch(e) { document.getElementById('auth-error').textContent = 'Googleログインに失敗: ' + e.message; }
 };
 
+let _gameInitialized = false;
 onAuthStateChanged(auth, async user => {
   document.getElementById('loading').style.display = 'none';
   if (user) {
+    // すでにゲーム初期化済みならstate.userDataを上書きしない（取引後の再発火対策）
+    if (_gameInitialized) return;
+    _gameInitialized = true;
+
     state.user = user;
     const snap = await getDoc(doc(db,'users',user.uid));
     state.userData = snap.exists() ? snap.data() : { name: user.displayName||user.email, cash: INITIAL_CASH, holdings: {} };
@@ -806,7 +811,6 @@ onAuthStateChanged(auth, async user => {
     initPrices(state.userData.lastPrices);
     setTimeout(() => {
       renderMarket(); renderSidebar(); updateTickerBar(); drawOverviewChart();
-      // オフライン経過のサマリーを表示
       if (window._offlineSummary) {
         const { timeStr, cashDelta, ticks } = window._offlineSummary;
         const msg = cashDelta > 0
@@ -817,11 +821,10 @@ onAuthStateChanged(auth, async user => {
       }
     }, 100);
     setInterval(tickPrices, PRICE_TICK);
-    // タブ離脱・ブラウザ閉じるときに保存
     window.addEventListener('beforeunload', saveSession);
-    // 定期的にも保存（30秒ごと）
     setInterval(saveSession, 30000);
   } else {
+    _gameInitialized = false;
     state.user = null; state.userData = null;
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('auth-screen').classList.add('active');
