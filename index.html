@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BULLRUN — 投資シミュレーター</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f; --bg2: #111118; --bg3: #1a1a24; --panel: #14141e;
+  --border: #2a2a3a; --green: #00e676; --red: #ff1744; --gold: #ffd740;
+  --blue: #448aff; --text: #e8e8f0; --muted: #666680;
+  --font-mono: 'Space Mono', monospace; --font-jp: 'Noto Sans JP', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-jp); min-height: 100vh; overflow-x: hidden; }
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: 0;
+  background-image: linear-gradient(rgba(68,138,255,.04) 1px,transparent 1px), linear-gradient(90deg,rgba(68,138,255,.04) 1px,transparent 1px);
+  background-size: 40px 40px; pointer-events: none;
+}
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 1;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px);
+  pointer-events: none;
+}
+.screen { position: relative; z-index: 2; display: none; min-height: 100vh; }
+.screen.active { display: flex; flex-direction: column; }
+
+/* AUTH */
+#auth-screen { align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 30%, #1a1a40 0%, var(--bg) 70%); }
+.auth-box { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 40px 36px; width: 380px; position: relative; box-shadow: 0 0 80px rgba(68,138,255,.1); }
+.auth-box::before { content: ''; position: absolute; top: -1px; left: 20px; right: 20px; height: 2px; background: linear-gradient(90deg,transparent,var(--blue),transparent); }
+.logo { font-family: var(--font-mono); font-size: 32px; font-weight: 700; letter-spacing: 4px; color: var(--gold); text-align: center; margin-bottom: 4px; text-shadow: 0 0 30px rgba(255,215,64,.5); }
+.logo-sub { color: var(--muted); font-size: 11px; text-align: center; letter-spacing: 3px; margin-bottom: 28px; }
+.btn-google { width: 100%; padding: 12px; background: #fff; border: 1px solid #ddd; border-radius: 3px; color: #333; font-family: var(--font-jp); font-size: 14px; font-weight: 700; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.btn-google:hover { background: #f5f5f5; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+.divider { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+.divider::before,.divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.divider span { color: var(--muted); font-size: 11px; letter-spacing: 1px; }
+.tab-row { display: flex; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+.tab-btn { flex: 1; padding: 10px; background: transparent; border: none; color: var(--muted); font-family: var(--font-mono); font-size: 12px; cursor: pointer; transition: all .2s; }
+.tab-btn.active { background: var(--blue); color: #fff; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-bottom: 6px; }
+.field input { width: 100%; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-family: var(--font-mono); font-size: 14px; outline: none; transition: border-color .2s; }
+.field input:focus { border-color: var(--blue); }
+.btn-primary { width: 100%; padding: 13px; background: var(--blue); border: none; border-radius: 3px; color: #fff; font-family: var(--font-mono); font-size: 13px; font-weight: 700; letter-spacing: 2px; cursor: pointer; transition: all .2s; margin-top: 4px; }
+.btn-primary:hover { background: #5a9bff; box-shadow: 0 0 20px rgba(68,138,255,.4); }
+.auth-error { color: var(--red); font-size: 12px; text-align: center; margin-top: 10px; min-height: 18px; }
+
+/* GAME LAYOUT */
+#game-screen { flex-direction: row; }
+.sidebar { width: 240px; min-height: 100vh; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px 0; flex-shrink: 0; }
+.sidebar-logo { font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: var(--gold); padding: 0 20px 20px; border-bottom: 1px solid var(--border); }
+.sidebar-logo span { color: var(--muted); font-size: 10px; display: block; letter-spacing: 2px; }
+.user-card { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.user-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.user-rank { font-size: 10px; color: var(--gold); letter-spacing: 1px; }
+.portfolio-summary { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.ps-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-bottom: 4px; }
+.ps-value { font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--gold); }
+.ps-cash { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 6px; }
+.ps-pnl { font-family: var(--font-mono); font-size: 12px; margin-top: 2px; }
+.ps-pnl.pos { color: var(--green); } .ps-pnl.neg { color: var(--red); }
+.nav { flex: 1; padding-top: 10px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 20px; cursor: pointer; color: var(--muted); font-size: 13px; transition: all .15s; border-left: 3px solid transparent; }
+.nav-item:hover { color: var(--text); background: var(--bg3); }
+.nav-item.active { color: var(--text); border-left-color: var(--blue); background: var(--bg2); }
+.nav-icon { font-size: 15px; }
+.logout-btn { margin: 0 20px; padding: 9px; background: transparent; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: all .2s; letter-spacing: 1px; }
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+.main-content { flex: 1; overflow-y: auto; padding: 24px; }
+.page { display: none; } .page.active { display: block; }
+.page-title { font-family: var(--font-mono); font-size: 16px; font-weight: 700; letter-spacing: 2px; margin-bottom: 20px; color: var(--text); }
+
+/* TICKER */
+.ticker-bar { background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; padding: 9px 14px; margin-bottom: 20px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ticker-inner { display: inline-flex; gap: 36px; animation: ticker 30s linear infinite; }
+
+/* OVERVIEW CHART */
+.overview-chart-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 18px 20px; margin-bottom: 20px; }
+.overview-chart-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+.overview-chart-title { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text); }
+.overview-chart-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.overview-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+#overview-canvas { display: block; width: 100%; height: 160px; }
+
+/* STOCK CARDS */
+.stocks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.stock-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 18px; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; }
+.stock-card::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg,transparent,var(--blue),transparent); transform: scaleX(0); transition: transform .3s; }
+.stock-card:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,.3); }
+.stock-card:hover::after { transform: scaleX(1); }
+.stock-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.stock-ticker { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--gold); }
+.stock-name { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.stock-sector { font-size: 10px; color: var(--blue); letter-spacing: 1px; background: rgba(68,138,255,.1); padding: 2px 7px; border-radius: 2px; flex-shrink: 0; }
+.stock-price { font-family: var(--font-mono); font-size: 22px; font-weight: 700; }
+.stock-change { font-family: var(--font-mono); font-size: 12px; margin-top: 2px; }
+.stock-change.pos { color: var(--green); } .stock-change.neg { color: var(--red); }
+.mini-chart { height: 48px; margin-top: 12px; width: 100%; position: relative; }
+.mini-chart canvas { display: block; }
+
+/* MODAL */
+.modal-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.75); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 28px; width: 400px; position: relative; box-shadow: 0 0 80px rgba(0,0,0,.5); animation: modalIn .2s ease; }
+@keyframes modalIn { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
+.modal-close { position: absolute; top: 14px; right: 14px; background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+.modal-ticker { font-family: var(--font-mono); font-size: 26px; font-weight: 700; color: var(--gold); margin-bottom: 4px; }
+.modal-name { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+.modal-price-row { display: flex; gap: 20px; margin-bottom: 18px; }
+.modal-stat { flex: 1; }
+.modal-stat-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-bottom: 4px; }
+.modal-stat-val { font-family: var(--font-mono); font-size: 16px; font-weight: 700; }
+.trade-tabs { display: flex; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+.trade-tab { flex: 1; padding: 10px; background: transparent; border: none; color: var(--muted); font-family: var(--font-mono); font-size: 12px; cursor: pointer; transition: all .2s; }
+.trade-tab.buy.active { background: var(--green); color: #000; }
+.trade-tab.sell.active { background: var(--red); color: #fff; }
+.qty-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.qty-row label { font-size: 11px; color: var(--muted); letter-spacing: 1px; flex-shrink: 0; }
+.qty-input { flex: 1; padding: 10px; background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: var(--font-mono); font-size: 16px; border-radius: 3px; outline: none; text-align: right; }
+.qty-input:focus { border-color: var(--blue); }
+.trade-total { font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+.trade-total span { color: var(--text); font-size: 16px; }
+.btn-trade { width: 100%; padding: 13px; border: none; border-radius: 3px; font-family: var(--font-mono); font-size: 14px; font-weight: 700; letter-spacing: 2px; cursor: pointer; transition: all .2s; }
+.btn-trade.buy { background: var(--green); color: #000; }
+.btn-trade.sell { background: var(--red); color: #fff; }
+.btn-trade:hover { opacity: .85; }
+.trade-msg { font-size: 12px; text-align: center; margin-top: 10px; min-height: 18px; }
+.trade-msg.ok { color: var(--green); } .trade-msg.err { color: var(--red); }
+
+/* HOLDINGS */
+.holdings-table { width: 100%; border-collapse: collapse; }
+.holdings-table th { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 1px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+.holdings-table td { padding: 13px 12px; border-bottom: 1px solid rgba(42,42,58,.5); font-family: var(--font-mono); font-size: 13px; }
+.holdings-table tr:hover td { background: var(--bg2); }
+
+/* HISTORY */
+.history-list { display: flex; flex-direction: column; gap: 8px; }
+.history-item { background: var(--panel); border: 1px solid var(--border); border-radius: 3px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; }
+.history-type { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 3px 8px; border-radius: 2px; flex-shrink: 0; }
+.history-type.BUY { background: rgba(0,230,118,.15); color: var(--green); }
+.history-type.SELL { background: rgba(255,23,68,.15); color: var(--red); }
+.history-ticker { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--gold); flex-shrink: 0; width: 60px; }
+.history-detail { color: var(--muted); font-size: 12px; flex: 1; }
+.history-amount { font-family: var(--font-mono); font-size: 13px; font-weight: 700; text-align: right; flex-shrink: 0; }
+
+/* RANKING */
+.rank-list { display: flex; flex-direction: column; gap: 8px; }
+.rank-item { background: var(--panel); border: 1px solid var(--border); border-radius: 3px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; }
+.rank-item:first-child { border-color: var(--gold); box-shadow: 0 0 20px rgba(255,215,64,.1); }
+.rank-num { font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: var(--muted); width: 28px; }
+.rank-item:nth-child(1) .rank-num { color: var(--gold); }
+.rank-item:nth-child(2) .rank-num { color: #aaa; }
+.rank-item:nth-child(3) .rank-num { color: #cd7f32; }
+.rank-name { flex: 1; font-size: 14px; font-weight: 700; }
+.rank-me { font-size: 10px; color: var(--blue); letter-spacing: 1px; margin-left: 8px; }
+.rank-value { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--gold); }
+
+/* GUIDE */
+.guide-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.guide-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 18px; }
+.guide-card-icon { font-size: 26px; margin-bottom: 8px; }
+.guide-card-title { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--gold); letter-spacing: 1px; margin-bottom: 8px; }
+.guide-card-body { font-size: 13px; color: var(--muted); line-height: 1.8; }
+.guide-card-body strong { color: var(--text); }
+.guide-section-title { font-family: var(--font-mono); font-size: 12px; color: var(--blue); letter-spacing: 2px; margin: 22px 0 12px; border-left: 3px solid var(--blue); padding-left: 10px; }
+.spend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.spend-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 16px; position: relative; overflow: hidden; }
+.spend-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.spend-card.type-invest::before { background: var(--blue); }
+.spend-card.type-save::before { background: var(--green); }
+.spend-card.type-risk::before { background: var(--red); }
+.spend-card.type-goal::before { background: var(--gold); }
+.spend-card-label { font-size: 10px; letter-spacing: 1px; margin-bottom: 6px; }
+.spend-card.type-invest .spend-card-label { color: var(--blue); }
+.spend-card.type-save .spend-card-label { color: var(--green); }
+.spend-card.type-risk .spend-card-label { color: var(--red); }
+.spend-card.type-goal .spend-card-label { color: var(--gold); }
+.spend-card-title { font-family: var(--font-mono); font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+.spend-card-body { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.tip-box { background: rgba(68,138,255,.07); border: 1px solid rgba(68,138,255,.2); border-radius: 4px; padding: 16px 20px; margin-top: 20px; }
+.tip-box-title { font-family: var(--font-mono); font-size: 11px; color: var(--blue); letter-spacing: 2px; margin-bottom: 10px; }
+.tip-box-body { font-size: 13px; color: var(--muted); line-height: 1.8; }
+.tip-box-body strong { color: var(--text); }
+
+/* SHOP */
+.shop-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.shop-tab { padding: 9px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-family: var(--font-jp); font-size: 13px; cursor: pointer; transition: all .2s; }
+.shop-tab.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+.shop-tab:hover:not(.active) { border-color: var(--blue); color: var(--text); }
+.shop-section { display: none; }
+.shop-section.active { display: block; }
+.shop-desc { color: var(--muted); font-size: 13px; margin-bottom: 18px; line-height: 1.7; }
+.btn-shop { width: 100%; padding: 10px; background: var(--blue); border: none; border-radius: 3px; color: #fff; font-family: var(--font-jp); font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s; margin-top: 12px; }
+.btn-shop:hover { background: #5a9bff; box-shadow: 0 0 16px rgba(68,138,255,.4); }
+.btn-shop:disabled { opacity: .4; cursor: not-allowed; background: var(--border); }
+.btn-shop.owned { background: var(--bg3); border: 1px solid var(--border); color: var(--green); cursor: default; }
+
+/* GACHA */
+.gacha-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.gacha-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 22px 18px; text-align: center; position: relative; overflow: hidden; }
+.gacha-card.featured { border-color: var(--gold); box-shadow: 0 0 24px rgba(255,215,64,.12); }
+.gacha-badge { position: absolute; top: 10px; right: -18px; background: var(--gold); color: #000; font-size: 10px; font-weight: 700; padding: 3px 24px; transform: rotate(30deg); letter-spacing: 1px; }
+.gacha-icon { font-size: 36px; margin-bottom: 10px; }
+.gacha-name { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.gacha-cost { font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: var(--gold); margin-bottom: 8px; }
+.gacha-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+.gacha-result { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 20px; text-align: center; min-height: 60px; display: none; }
+.gacha-result.show { display: block; animation: modalIn .3s ease; }
+.gacha-result-icon { font-size: 40px; margin-bottom: 8px; }
+.gacha-result-title { font-family: var(--font-mono); font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.gacha-result-desc { font-size: 13px; color: var(--muted); }
+
+/* REAL ESTATE */
+.realestate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.re-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 20px; position: relative; overflow: hidden; }
+.re-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--blue); }
+.re-card.owned::before { background: var(--green); }
+.re-icon { font-size: 28px; margin-bottom: 8px; }
+.re-name { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.re-income { font-size: 12px; color: var(--green); margin-bottom: 4px; }
+.re-cost { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+.re-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+.re-count { font-size: 11px; color: var(--blue); margin-top: 4px; }
+
+/* SKILL */
+.skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.skill-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 20px; position: relative; }
+.skill-card.learned { border-color: var(--green); }
+.skill-icon { font-size: 28px; margin-bottom: 8px; }
+.skill-name { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.skill-effect { font-size: 12px; color: var(--blue); margin-bottom: 6px; font-weight: 700; }
+.skill-cost { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+.skill-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+.skill-tag { display: inline-block; font-size: 10px; background: rgba(0,230,118,.15); color: var(--green); padding: 2px 8px; border-radius: 2px; margin-top: 6px; letter-spacing: 1px; }
+
+/* ITEMS */
+.items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.item-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 18px; }
+.item-icon { font-size: 28px; margin-bottom: 8px; }
+.item-name { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.item-effect { font-size: 12px; color: var(--gold); margin-bottom: 6px; }
+.item-cost { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+.item-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+
+/* NOTIF */
+.notif { position: fixed; top: 20px; right: 20px; z-index: 999; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 12px 18px; font-family: var(--font-mono); font-size: 13px; box-shadow: 0 4px 30px rgba(0,0,0,.4); transform: translateX(120%); transition: transform .3s; }
+.notif.show { transform: translateX(0); }
+.notif.ok { border-left: 3px solid var(--green); color: var(--green); }
+.notif.err { border-left: 3px solid var(--red); color: var(--red); }
+
+/* LOADING */
+#loading { position: fixed; inset: 0; z-index: 200; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+.spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div></div>
+<div class="notif" id="notif"></div>
+
+<!-- AUTH -->
+<div id="auth-screen" class="screen">
+  <div class="auth-box">
+    <div class="logo">BULLRUN</div>
+    <div class="logo-sub">投資シミュレーター</div>
+    <button class="btn-google" onclick="doGoogleLogin()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4c-7.8 0-14.5 4.3-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.8 13.5-4.7l-6.2-5.2C29.5 35.9 26.9 37 24 37c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.5 39.7 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.2-2.3 4.1-4.2 5.4l6.2 5.2C41.6 35.2 44 30 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
+      Googleでログイン
+    </button>
+    <div class="divider"><span>または</span></div>
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchAuthTab('login')">ログイン</button>
+      <button class="tab-btn" onclick="switchAuthTab('register')">新規登録</button>
+    </div>
+    <div id="login-form">
+      <div class="field"><label>メールアドレス</label><input type="email" id="login-email" placeholder="you@example.com"></div>
+      <div class="field"><label>パスワード</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+      <button class="btn-primary" onclick="doLogin()">ログイン</button>
+    </div>
+    <div id="register-form" style="display:none">
+      <div class="field"><label>表示名</label><input type="text" id="reg-name" placeholder="ニックネーム"></div>
+      <div class="field"><label>メールアドレス</label><input type="email" id="reg-email" placeholder="you@example.com"></div>
+      <div class="field"><label>パスワード（6文字以上）</label><input type="password" id="reg-pass" placeholder="••••••••"></div>
+      <button class="btn-primary" onclick="doRegister()">登録してスタート</button>
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="game-screen" class="screen">
+  <aside class="sidebar">
+    <div class="sidebar-logo">BULLRUN <span>投資シミュレーター</span></div>
+    <div class="user-card">
+      <div class="user-name" id="sb-username">---</div>
+      <div class="user-rank" id="sb-rank">○ 新人</div>
+    </div>
+    <div class="portfolio-summary">
+      <div class="ps-label">総資産</div>
+      <div class="ps-value" id="sb-total">¥0</div>
+      <div class="ps-cash" id="sb-cash">現金: ¥0</div>
+      <div class="ps-pnl" id="sb-pnl">±¥0 (0%)</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" data-page="market" onclick="navTo('market')"><span class="nav-icon">📈</span> マーケット</div>
+      <div class="nav-item" data-page="holdings" onclick="navTo('holdings')"><span class="nav-icon">💼</span> 保有株</div>
+      <div class="nav-item" data-page="history" onclick="navTo('history')"><span class="nav-icon">📋</span> 取引履歴</div>
+      <div class="nav-item" data-page="ranking" onclick="navTo('ranking')"><span class="nav-icon">🏆</span> ランキング</div>
+      <div class="nav-item" data-page="shop" onclick="navTo('shop')"><span class="nav-icon">🛍️</span> ショップ</div>
+      <div class="nav-item" data-page="guide" onclick="navTo('guide')"><span class="nav-icon">📖</span> ガイド</div>
+      <div class="nav-item" data-page="admin" onclick="navTo('admin')"><span class="nav-icon">🔐</span> 管理者</div>
+    </nav>
+    <button class="logout-btn" onclick="doLogout()">ログアウト</button>
+  </aside>
+
+  <main class="main-content">
+
+    <!-- マーケット -->
+    <div class="page active" id="page-market">
+      <div class="page-title">マーケット</div>
+      <div class="ticker-bar"><div class="ticker-inner" id="ticker-inner">読み込み中...</div></div>
+
+      <!-- 総合チャート -->
+      <div class="overview-chart-wrap">
+        <div class="overview-chart-header">
+          <div>
+            <div class="overview-chart-title">総合チャート</div>
+            <div class="overview-chart-sub">全8銘柄・基準値比の価格推移</div>
+          </div>
+          <div class="overview-legend" id="overview-legend"></div>
+        </div>
+        <canvas id="overview-canvas"></canvas>
+      </div>
+
+      <div class="stocks-grid" id="stocks-grid"></div>
+    </div>
+
+    <!-- 保有株 -->
+    <div class="page" id="page-holdings">
+      <div class="page-title">保有株</div>
+      <div id="holdings-content"></div>
+    </div>
+
+    <!-- 取引履歴 -->
+    <div class="page" id="page-history">
+      <div class="page-title">取引履歴</div>
+      <div id="history-content"></div>
+    </div>
+
+    <!-- ランキング -->
+    <div class="page" id="page-ranking">
+      <div class="page-title">ランキング</div>
+      <div id="ranking-content"></div>
+    </div>
+
+    <!-- ショップ -->
+    <div class="page" id="page-shop">
+      <div class="page-title">ショップ</div>
+
+      <!-- タブ -->
+      <div class="shop-tabs">
+        <button class="shop-tab active" onclick="switchShopTab('gacha')">🎰 ガチャ</button>
+        <button class="shop-tab" onclick="switchShopTab('realestate')">🏠 不動産</button>
+        <button class="shop-tab" onclick="switchShopTab('skill')">📚 スキルアップ</button>
+        <button class="shop-tab" onclick="switchShopTab('items')">🛍️ アイテム</button>
+      </div>
+
+      <!-- ガチャ -->
+      <div class="shop-section active" id="shop-gacha">
+        <div class="shop-desc">現金を使ってランダムな報酬を引こう！大当たりで資産が一気に増えるかも。</div>
+        <div class="gacha-grid">
+          <div class="gacha-card">
+            <div class="gacha-icon">🥉</div>
+            <div class="gacha-name">ノーマルガチャ</div>
+            <div class="gacha-cost">¥400,000</div>
+            <div class="gacha-desc">ハズレ50%。最大+20%。初期資金の4割が吹き飛ぶかも。</div>
+            <button class="btn-shop" onclick="doGacha('normal')">引く</button>
+          </div>
+          <div class="gacha-card featured">
+            <div class="gacha-badge">おすすめ</div>
+            <div class="gacha-icon">🥈</div>
+            <div class="gacha-name">レアガチャ</div>
+            <div class="gacha-cost">¥1,500,000</div>
+            <div class="gacha-desc">ハズレ45%。最大+80%（確率0.9%）。資産150万以上推奨。</div>
+            <button class="btn-shop" onclick="doGacha('rare')">引く</button>
+          </div>
+          <div class="gacha-card">
+            <div class="gacha-icon">🥇</div>
+            <div class="gacha-name">伝説ガチャ</div>
+            <div class="gacha-cost">¥5,000,000</div>
+            <div class="gacha-desc">ハズレ40%。最大2.5倍（確率0.4%）。資産500万以上向け。</div>
+            <button class="btn-shop" onclick="doGacha('legend')">引く</button>
+          </div>
+        </div>
+        <div class="gacha-result" id="gacha-result"></div>
+      </div>
+
+      <!-- 不動産 -->
+      <div class="shop-section" id="shop-realestate">
+        <div class="shop-desc">物件を購入すると毎ティック（5秒）ごとに家賃収入が自動で入ってくる！</div>
+        <div class="realestate-grid" id="realestate-grid"></div>
+      </div>
+
+      <!-- スキルアップ -->
+      <div class="shop-section" id="shop-skill">
+        <div class="shop-desc">スキルを習得すると投資に有利な効果が永続的につく！</div>
+        <div class="skill-grid" id="skill-grid"></div>
+      </div>
+
+      <!-- アイテム -->
+      <div class="shop-section" id="shop-items">
+        <div class="shop-desc">特別なアイテムを購入してゲームを有利に進めよう！</div>
+        <div class="items-grid" id="items-grid"></div>
+      </div>
+
+    </div>
+
+    <!-- 管理者 -->
+    <div class="page" id="page-admin">
+      <div class="page-title">管理者パネル</div>
+      <div style="max-width:380px">
+        <div class="guide-card" style="margin-bottom:16px">
+          <div class="guide-card-icon">🔐</div>
+          <div class="guide-card-title">管理者コード認証</div>
+          <div class="guide-card-body" style="margin-bottom:14px">管理者コードを入力して認証してください。</div>
+          <div class="field">
+            <label>管理者コード</label>
+            <input type="password" id="admin-code-input" placeholder="コードを入力…" onkeydown="if(event.key==='Enter')verifyAdmin()">
+          </div>
+          <button class="btn-primary" onclick="verifyAdmin()" style="margin-top:8px">認証</button>
+          <div id="admin-auth-msg" style="font-size:12px;margin-top:8px;min-height:16px"></div>
+        </div>
+        <div id="admin-panel" style="display:none">
+          <div class="guide-card">
+            <div class="guide-card-icon">💰</div>
+            <div class="guide-card-title">所持金を書き換える</div>
+            <div class="field" style="margin-top:12px">
+              <label>新しい所持金（現金）</label>
+              <input type="number" id="admin-cash-input" placeholder="例: 1000000" style="background:var(--bg2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--font-mono);font-size:14px;padding:10px 14px;width:100%;outline:none">
+            </div>
+            <button class="btn-primary" onclick="adminSetCash()" style="background:var(--gold);color:#000;margin-top:4px">書き換える</button>
+            <div id="admin-cash-msg" style="font-size:12px;margin-top:8px;min-height:16px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ガイド -->
+    <div class="page" id="page-guide">
+      <div class="page-title">ガイド</div>
+
+      <div class="guide-section-title">📌 ゲームの基本ルール</div>
+      <div class="guide-grid">
+        <div class="guide-card">
+          <div class="guide-card-icon">💰</div>
+          <div class="guide-card-title">初期資金</div>
+          <div class="guide-card-body">ゲーム開始時に<strong>100万円</strong>が配られます。この資金を使って株を買ったり売ったりして、総資産を増やしましょう。</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-card-icon">📈</div>
+          <div class="guide-card-title">株価の変動</div>
+          <div class="guide-card-body">株価は<strong>5秒ごと</strong>にランダムで変動します。最大±3%の幅で上下するので、タイミングを見極めて売買しましょう。</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-card-icon">🛒</div>
+          <div class="guide-card-title">株の買い方</div>
+          <div class="guide-card-body">マーケットのカードをタップ →「買う」タブを選択 → 株数を入力 →「買う」ボタン。<strong>現金が足りないと購入できません。</strong></div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-card-icon">💸</div>
+          <div class="guide-card-title">株の売り方</div>
+          <div class="guide-card-body">カードをタップ →「売る」タブを選択 → 売る数を入力 →「売る」ボタン。<strong>持っていない株は売れません。</strong></div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-card-icon">🏆</div>
+          <div class="guide-card-title">ランクシステム</div>
+          <div class="guide-card-body">
+            総資産に応じてランクアップ！<br>
+            <strong>○ 新人</strong>：200万円未満<br>
+            <strong>★ プロ</strong>：200万円以上<br>
+            <strong>★★ エリート</strong>：500万円以上<br>
+            <strong>★★★ 伝説</strong>：1000万円以上
+          </div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-card-icon">📊</div>
+          <div class="guide-card-title">ミニチャートの見方</div>
+          <div class="guide-card-body">各カード下の折れ線グラフは<strong>過去30ステップの価格推移</strong>を表示。上昇・下降のトレンドを読むヒントになります。</div>
+        </div>
+      </div>
+
+      <div class="guide-section-title">💡 投資戦略のヒント</div>
+      <div class="guide-grid">
+        <div class="guide-card">
+          <div class="guide-card-icon">🌊</div>
+          <div class="guide-card-title">安く買って高く売る</div>
+          <div class="guide-card-body">投資の基本は<strong>「安いときに買い、高くなったら売る」</strong>こと。チャートが下がりきったタイミングで買い、上がったら売って利益確定！</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-card-icon">🧺</div>
+          <div class="guide-card-title">分散投資</div>
+          <div class="guide-card-body">1つの株に全財産を賭けるのはリスクが高い。<strong>複数の銘柄に分けて投資</strong>することで、1つが下がっても他でカバーできます。</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-card-icon">⏱️</div>
+          <div class="guide-card-title">損切りの重要性</div>
+          <div class="guide-card-body">株価が下がり続けているとき、<strong>損を確定させて早めに売る（損切り）</strong>ことも大切。「いつか上がる」と信じて持ち続けると損が膨らむことも。</div>
+        </div>
+      </div>
+
+      <div class="guide-section-title">🏠 お金の使い道（投資の考え方）</div>
+      <div class="spend-grid">
+        <div class="spend-card type-invest">
+          <div class="spend-card-label">積極投資</div>
+          <div class="spend-card-title">📈 成長株に投資</div>
+          <div class="spend-card-body">TECHやGAMEは値動きが激しく、うまくいけば大きなリターンが期待できます。ハイリスク・ハイリターン型。</div>
+        </div>
+        <div class="spend-card type-save">
+          <div class="spend-card-label">安定運用</div>
+          <div class="spend-card-title">🏦 安定株で守る</div>
+          <div class="spend-card-body">BANKやFOODは値動きが比較的穏やか。資産を大きく減らしたくないときの安全地帯として活用できます。</div>
+        </div>
+        <div class="spend-card type-risk">
+          <div class="spend-card-label">注意が必要</div>
+          <div class="spend-card-title">⚠️ 全財産を1株に集中</div>
+          <div class="spend-card-body">「絶対上がる！」と全額投入するのは危険。株価は予測不能なので、<strong>余裕資金の範囲で投資</strong>するのが鉄則。</div>
+        </div>
+        <div class="spend-card type-goal">
+          <div class="spend-card-label">目標設定</div>
+          <div class="spend-card-title">🎯 目標総資産を決める</div>
+          <div class="spend-card-body">「まず★プロ（200万円）を目指す」など目標を決めると動きやすい。利益が出たら一部確定させ、残りで再投資するのもテクニック。</div>
+        </div>
+        <div class="spend-card type-invest">
+          <div class="spend-card-label">タイミング戦略</div>
+          <div class="spend-card-title">🔄 底値を狙う</div>
+          <div class="spend-card-body">チャートが下がりきったと思ったタイミングで買い、上昇してきたら売る「底値買い」戦略。完璧は難しいけど練習になります。</div>
+        </div>
+        <div class="spend-card type-goal">
+          <div class="spend-card-label">現実でも使える知識</div>
+          <div class="spend-card-title">🌍 現実の投資との違い</div>
+          <div class="spend-card-body">現実の株は業績・ニュース・経済指標で動きます。このゲームはランダム変動ですが、「買い時・売り時を考える感覚」は同じです。</div>
+        </div>
+      </div>
+
+      <div class="tip-box">
+        <div class="tip-box-title">💬 初心者向けおすすめ戦略</div>
+        <div class="tip-box-body">
+          最初は<strong>現金の半分だけ</strong>を使って複数の銘柄を少しずつ買ってみよう。チャートを見ながら上がったら売って利益を確定し、残り半分は価格が下がったときの「買い増し資金」として温存するのがポイント。
+          焦って全額使い切らず、<strong>常に手元に予備の現金を残しておく</strong>のが資産を守る基本です。
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Trade Modal -->
+<div class="modal-overlay" id="trade-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-ticker" id="m-ticker"></div>
+    <div class="modal-name" id="m-name"></div>
+    <div class="modal-price-row">
+      <div class="modal-stat"><div class="modal-stat-label">現在値</div><div class="modal-stat-val" id="m-price"></div></div>
+      <div class="modal-stat"><div class="modal-stat-label">前回比</div><div class="modal-stat-val" id="m-change"></div></div>
+      <div class="modal-stat"><div class="modal-stat-label">保有数</div><div class="modal-stat-val" id="m-holding">0株</div></div>
+    </div>
+    <div class="trade-tabs">
+      <button class="trade-tab buy active" onclick="setTradeMode('BUY')">買う</button>
+      <button class="trade-tab sell" onclick="setTradeMode('SELL')">売る</button>
+    </div>
+    <div class="qty-row">
+      <label>数量</label>
+      <input type="number" class="qty-input" id="trade-qty" min="1" value="1" oninput="updateTotal()">
+    </div>
+    <div class="trade-total">合計: <span id="trade-total-val">¥0</span></div>
+    <button class="btn-trade buy" id="trade-btn" onclick="executeTrade()">買う</button>
+    <div class="trade-msg" id="trade-msg"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyAal3KAzh4IWnvP_UUNHFJGVV2mTLqj3hE",
+  authDomain: "konndokosohababanuki.firebaseapp.com",
+  projectId: "konndokosohababanuki",
+  storageBucket: "konndokosohababanuki.firebasestorage.app",
+  messagingSenderId: "872652596940",
+  appId: "1:872652596940:web:ed3d067764d82cc381c469"
+});
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const INITIAL_CASH = 1_000_000;
+const PRICE_TICK = 5000;
+const STOCKS = [
+  { ticker: 'TECH', name: 'テクノロジー株式会社', sector: 'テック', base: 45000 },
+  { ticker: 'BANK', name: '大和銀行ホールディングス', sector: '金融', base: 3200 },
+  { ticker: 'AUTO', name: 'ジャパン自動車', sector: '自動車', base: 8500 },
+  { ticker: 'PHRM', name: '健康製薬グループ', sector: '製薬', base: 12000 },
+  { ticker: 'ENRG', name: '東洋エネルギー', sector: 'エネルギー', base: 6700 },
+  { ticker: 'FOOD', name: '日本食品コーポ', sector: '食品', base: 2800 },
+  { ticker: 'GAME', name: 'メガゲームス株式会社', sector: 'ゲーム', base: 21000 },
+  { ticker: 'SHIP', name: '太平洋海運', sector: '物流', base: 4100 },
+];
+let state = { user: null, userData: null, prices: {}, priceHistory: {}, tradeMode: 'BUY' };
+const fmt = n => {
+  n = Math.round(n);
+  const units = [
+    [1e18, 'Qi'], // 百京
+    [1e15, 'Qa'], // 京
+    [1e12, 'T'],  // 兆
+    [1e9,  'B'],  // 十億
+    [1e6,  'M'],  // 百万
+    [1e3,  'K'],  // 千
+  ];
+  for (const [thresh, label] of units) {
+    if (n >= thresh) return '¥' + (n / thresh).toFixed(1) + label;
+  }
+  return '¥' + n.toLocaleString('ja-JP');
+};
+const pct = (a, b) => b === 0 ? '0.00' : ((a - b) / b * 100).toFixed(2);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const rankLabel = t => t >= 10_000_000 ? '★★★ 伝説' : t >= 5_000_000 ? '★★ エリート' : t >= 2_000_000 ? '★ プロ' : '○ 新人';
+
+function initPrices(savedPrices) {
+  STOCKS.forEach(s => {
+    const p = savedPrices?.[s.ticker] || s.base;
+    state.prices[s.ticker] = p;
+    state.priceHistory[s.ticker] = Array(10).fill(p);
+  });
+}
+
+// 離脱時にFirestoreへ現在状態を保存
+async function saveSession() {
+  if (!state.user || !state.userData) return;
+  const prices = {};
+  STOCKS.forEach(s => { prices[s.ticker] = state.prices[s.ticker]; });
+  try {
+    await updateDoc(doc(db,'users',state.user.uid), {
+      lastSeen: Date.now(),
+      lastPrices: prices,
+      cash: state.userData.cash,
+    });
+  } catch(e) {}
+}
+
+// ログイン時に離脱中の経過を一気に計算して適用
+function applyOfflineProgress(userData) {
+  const lastSeen = userData.lastSeen;
+  if (!lastSeen) return;
+  const now = Date.now();
+  const elapsed = now - lastSeen;
+  const ticks = Math.floor(elapsed / PRICE_TICK);
+  if (ticks <= 0) return;
+
+  const MAX_TICKS = 17280; // 最大24時間分
+  const applyTicks = Math.min(ticks, MAX_TICKS);
+  const skills = userData.skills || {};
+  const realestate = userData.realestate || {};
+
+  // 株価を経過ティック分シミュレート
+  const savedPrices = userData.lastPrices || {};
+  STOCKS.forEach(s => {
+    let price = savedPrices[s.ticker] || s.base;
+    let volatility = skills.analyst ? 0.05 : 0.03;
+    for (let i = 0; i < applyTicks; i++) {
+      let change = price * (Math.random() * volatility * 2 - volatility);
+      if (skills.risk_mgr && change < 0) change = Math.max(change, -price * 0.01);
+      price = Math.round(Math.max(s.base * 0.3, Math.min(s.base * 3, price + change)));
+    }
+    state.prices[s.ticker] = price;
+    state.priceHistory[s.ticker] = Array(10).fill(price);
+  });
+
+  // 家賃収入を経過ティック分加算
+  let cashDelta = 0;
+  REAL_ESTATES.forEach(re => {
+    const count = realestate[re.id] || 0;
+    if (count > 0) cashDelta += re.income * count * applyTicks;
+  });
+  if (skills.dividend) {
+    const totalShares = Object.values(userData.holdings || {}).reduce((s,q)=>s+q, 0);
+    cashDelta += totalShares * 10 * applyTicks;
+  }
+  if (cashDelta > 0) userData.cash += cashDelta;
+
+  const hours = Math.floor(elapsed / 3600000);
+  const mins = Math.floor((elapsed % 3600000) / 60000);
+  const timeStr = hours > 0 ? hours + '時間' + mins + '分' : mins + '分';
+  window._offlineSummary = { timeStr, cashDelta, ticks: applyTicks };
+}
+
+function tickPrices() {
+  const skills = state.userData?.skills || {};
+  const realestate = state.userData?.realestate || {};
+  const items = state.userData?.items || {};
+  let cashDelta = 0;
+
+  // 家賃収入
+  REAL_ESTATES.forEach(re => {
+    const count = realestate[re.id] || 0;
+    if (count > 0) cashDelta += re.income * count;
+  });
+
+  // 配当収入スキル（保有株数 × 10円/ティック）
+  if (skills.dividend) {
+    const totalShares = Object.values(state.userData?.holdings||{}).reduce((s,q)=>s+q,0);
+    cashDelta += totalShares * 10;
+  }
+
+  STOCKS.forEach(s => {
+    const prev = state.prices[s.ticker];
+    let volatility = 0.03; // ±3% デフォルト
+    if (skills.analyst) volatility = 0.05; // アナリスト: ±5%
+    let change = prev * (Math.random() * volatility * 2 - volatility);
+    // リスク管理スキル: 下落幅を-1%に抑制
+    if (skills.risk_mgr && change < 0) change = Math.max(change, -prev * 0.01);
+    const next = Math.round(clamp(prev + change, s.base * 0.3, s.base * 3));
+    state.prices[s.ticker] = next;
+    const h = state.priceHistory[s.ticker];
+    h.push(next);
+    if (h.length > 30) h.shift();
+  });
+
+  // 現金デルタを反映
+  if (cashDelta > 0 && state.userData) {
+    state.userData.cash += cashDelta;
+    // 5ティックごとにFirestoreに保存（負荷軽減）
+    if (!window._tickCount) window._tickCount = 0;
+    window._tickCount++;
+    if (window._tickCount % 5 === 0) {
+      updateDoc(doc(db,'users',state.user.uid), { cash: state.userData.cash }).catch(()=>{});
+    }
+  }
+
+  renderMarket();
+  renderSidebar();
+  updateModalPrice();
+  updateTickerBar();
+  drawOverviewChart();
+}
+
+// AUTH
+window.switchAuthTab = tab => {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===0?tab==='login':tab==='register'));
+  document.getElementById('login-form').style.display = tab==='login'?'':'none';
+  document.getElementById('register-form').style.display = tab==='register'?'':'none';
+  document.getElementById('auth-error').textContent = '';
+};
+window.doLogin = async () => {
+  try { await signInWithEmailAndPassword(auth, document.getElementById('login-email').value.trim(), document.getElementById('login-pass').value); }
+  catch { document.getElementById('auth-error').textContent = 'メールアドレスかパスワードが違います'; }
+};
+window.doRegister = async () => {
+  const name = document.getElementById('reg-name').value.trim();
+  if (!name) { document.getElementById('auth-error').textContent = '表示名を入力してください'; return; }
+  try {
+    const c = await createUserWithEmailAndPassword(auth, document.getElementById('reg-email').value.trim(), document.getElementById('reg-pass').value);
+    await setDoc(doc(db,'users',c.user.uid), { name, cash: INITIAL_CASH, holdings: {}, createdAt: serverTimestamp() });
+  } catch(e) { document.getElementById('auth-error').textContent = e.message; }
+};
+window.doLogout = async () => {
+  await saveSession();
+  await signOut(auth);
+};
+window.doGoogleLogin = async () => {
+  try {
+    const c = await signInWithPopup(auth, new GoogleAuthProvider());
+    if (!(await getDoc(doc(db,'users',c.user.uid))).exists()) {
+      const name = c.user.displayName || c.user.email.split('@')[0];
+      await setDoc(doc(db,'users',c.user.uid), { name, cash: INITIAL_CASH, holdings: {}, createdAt: serverTimestamp() });
+    }
+  } catch(e) { document.getElementById('auth-error').textContent = 'Googleログインに失敗: ' + e.message; }
+};
+
+onAuthStateChanged(auth, async user => {
+  document.getElementById('loading').style.display = 'none';
+  if (user) {
+    state.user = user;
+    const snap = await getDoc(doc(db,'users',user.uid));
+    state.userData = snap.exists() ? snap.data() : { name: user.displayName||user.email, cash: INITIAL_CASH, holdings: {} };
+    if (!snap.exists()) await setDoc(doc(db,'users',user.uid), { ...state.userData, createdAt: serverTimestamp() });
+
+    // オフライン中の経過を計算
+    applyOfflineProgress(state.userData);
+    // 計算後の株価・現金でFirestoreを更新
+    const offlinePrices = {};
+    STOCKS.forEach(s => { offlinePrices[s.ticker] = state.prices[s.ticker] || s.base; });
+    await updateDoc(doc(db,'users',user.uid), { cash: state.userData.cash, lastPrices: offlinePrices, lastSeen: Date.now() }).catch(()=>{});
+
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('game-screen').classList.add('active');
+    initPrices(state.userData.lastPrices);
+    setTimeout(() => {
+      renderMarket(); renderSidebar(); updateTickerBar(); drawOverviewChart();
+      // オフライン経過のサマリーを表示
+      if (window._offlineSummary) {
+        const { timeStr, cashDelta, ticks } = window._offlineSummary;
+        const msg = cashDelta > 0
+          ? timeStr + 'ぶりにログイン！' + ticks + 'ティック経過。家賃収入 +' + fmt(cashDelta) + ' 自動加算済み'
+          : timeStr + 'ぶりにログイン！' + ticks + 'ティック分の株価変動を反映したよ';
+        showNotif(msg, 'ok');
+        window._offlineSummary = null;
+      }
+    }, 100);
+    setInterval(tickPrices, PRICE_TICK);
+    // タブ離脱・ブラウザ閉じるときに保存
+    window.addEventListener('beforeunload', saveSession);
+    // 定期的にも保存（30秒ごと）
+    setInterval(saveSession, 30000);
+  } else {
+    state.user = null; state.userData = null;
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('auth-screen').classList.add('active');
+  }
+});
+
+// ── ガチャ ──
+const GACHA_TABLES = {
+  // ノーマル: 初期資金の半分近くかかる。基本損する。
+  normal: [
+    { w:50, icon:'💸', title:'ハズレ…',       desc:'何も起きなかった。ギャンブルはほどほどに。',  fn: d => {} },
+    { w:28, icon:'🪙', title:'少しだけ回収',   desc:'+¥30,000 ゲット',                           fn: d => { d.cash+=30000; } },
+    { w:14, icon:'💰', title:'プチボーナス！', desc:'+¥80,000 ゲット',                            fn: d => { d.cash+=80000; } },
+    { w: 6, icon:'📈', title:'当たり！',       desc:'現金+10%！',                                 fn: d => { d.cash=Math.round(d.cash*1.1); } },
+    { w: 2, icon:'🌟', title:'大当たり！',     desc:'現金+20%！ すごい！',                        fn: d => { d.cash=Math.round(d.cash*1.2); } },
+  ],
+  // レア: 資産の1/3〜1/4くらいかかる想定。たまにトントン。
+  rare: [
+    { w:45, icon:'💸', title:'ハズレ…',       desc:'今回は残念。次に期待しよう。',                fn: d => {} },
+    { w:28, icon:'💰', title:'少し回収！',     desc:'+¥200,000 ゲット',                           fn: d => { d.cash+=200000; } },
+    { w:17, icon:'📈', title:'現金+15%！',     desc:'まずまずの結果！',                            fn: d => { d.cash=Math.round(d.cash*1.15); } },
+    { w: 7, icon:'🎊', title:'当たり！',       desc:'現金+30%！ 運がいい！',                      fn: d => { d.cash=Math.round(d.cash*1.3); } },
+    { w: 2, icon:'🌟', title:'大当たり！',     desc:'現金+50%！ 信じられない！',                  fn: d => { d.cash=Math.round(d.cash*1.5); } },
+    { w: 1, icon:'💎', title:'超レア！',       desc:'現金+80%！ 0.9%の奇跡！',                   fn: d => { d.cash=Math.round(d.cash*1.8); } },
+  ],
+  // 伝説: 資産が相当ないと手が出ない。ほぼ損する。
+  legend: [
+    { w:40, icon:'💸', title:'ハズレ…',           desc:'大金が消えた…つらい。',                  fn: d => {} },
+    { w:28, icon:'💰', title:'少し戻った',         desc:'+¥500,000 ゲット',                       fn: d => { d.cash+=500000; } },
+    { w:18, icon:'📈', title:'現金+20%！',         desc:'まあまあの結果！',                        fn: d => { d.cash=Math.round(d.cash*1.2); } },
+    { w: 9, icon:'🎊', title:'当たり！',           desc:'現金+40%！',                             fn: d => { d.cash=Math.round(d.cash*1.4); } },
+    { w: 3, icon:'🌟', title:'大当たり！',         desc:'現金+70%！ さすが伝説！',                fn: d => { d.cash=Math.round(d.cash*1.7); } },
+    { w: 1, icon:'👑', title:'ジャックポット！',   desc:'現金2倍！！ 0.9%の奇跡！',              fn: d => { d.cash=Math.round(d.cash*2); } },
+    { w: 1, icon:'🚀', title:'超ジャックポット！', desc:'現金2.5倍！！！ 0.4%の奇跡！',          fn: d => { d.cash=Math.round(d.cash*2.5); } },
+  ],
+};
+const GACHA_COST = { normal:400000, rare:1500000, legend:5000000 };
+
+window.doGacha = async type => {
+  const d = state.userData;
+  const cost = GACHA_COST[type];
+  if (d.cash < cost) { showNotif('現金が足りません！', 'err'); return; }
+  d.cash -= cost;
+  // 重み付きランダム
+  const table = GACHA_TABLES[type];
+  const total = table.reduce((s,r)=>s+r.w, 0);
+  let rnd = Math.random()*total;
+  let result = table[table.length-1];
+  for (const r of table) { rnd-=r.w; if(rnd<=0){result=r;break;} }
+  result.fn(d);
+  // 結果表示
+  const el = document.getElementById('gacha-result');
+  el.innerHTML = `<div class="gacha-result-icon">${result.icon}</div><div class="gacha-result-title" style="color:var(--gold)">${result.title}</div><div class="gacha-result-desc">${result.desc}</div>`;
+  el.className = 'gacha-result show';
+  // 保存
+  try {
+    await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, holdings:d.holdings||{} });
+    renderSidebar();
+    showNotif(result.title, 'ok');
+  } catch(e) { showNotif('保存エラー', 'err'); }
+};
+
+// ── 不動産 ──
+function renderRealEstate() {
+  const el = document.getElementById('realestate-grid');
+  const owned = state.userData?.realestate || {};
+  let html = '';
+  REAL_ESTATES.forEach(re => {
+    const count = owned[re.id] || 0;
+    const isOwned = count > 0;
+    const totalIncome = re.income * count;
+    html += `<div class="re-card ${isOwned?'owned':''}">
+      <div class="re-icon">${re.icon}</div>
+      <div class="re-name">${re.name}</div>
+      <div class="re-income">毎ティック +${re.income.toLocaleString()}円${count>1?' × '+count+'棟 = +'+totalIncome.toLocaleString()+'円':''}</div>
+      <div class="re-cost">${fmt(re.cost)}</div>
+      <div class="re-desc">${re.desc}</div>
+      ${isOwned?`<div class="re-count">所有数: ${count}棟</div>`:''}
+      <button class="btn-shop" onclick="buyRealEstate('${re.id}')">${isOwned?'追加購入':'購入する'}</button>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+window.buyRealEstate = async id => {
+  const re = REAL_ESTATES.find(r=>r.id===id);
+  const d = state.userData;
+  if (d.cash < re.cost) { showNotif('現金が足りません！', 'err'); return; }
+  d.cash -= re.cost;
+  d.realestate = d.realestate || {};
+  d.realestate[id] = (d.realestate[id]||0) + 1;
+  try {
+    await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, realestate:d.realestate });
+    renderSidebar(); renderRealEstate();
+    showNotif(`${re.name} を購入！毎ティック +${re.income.toLocaleString()}円`, 'ok');
+  } catch(e) { showNotif('保存エラー', 'err'); }
+};
+
+// ── スキル ──
+function renderSkills() {
+  const el = document.getElementById('skill-grid');
+  const skills = state.userData?.skills || {};
+  let html = '';
+  SKILLS.forEach(sk => {
+    const learned = !!skills[sk.id];
+    html += `<div class="skill-card ${learned?'learned':''}">
+      <div class="skill-icon">${sk.icon}</div>
+      <div class="skill-name">${sk.name}</div>
+      <div class="skill-effect">${sk.effect}</div>
+      <div class="skill-cost">${fmt(sk.cost)}</div>
+      <div class="skill-desc">${sk.desc}</div>
+      <span class="skill-tag">${sk.tag}</span>
+      <button class="btn-shop ${learned?'owned':''}" onclick="buySkill('${sk.id}')" ${learned?'disabled':''}>
+        ${learned?'✓ 習得済み':'習得する'}
+      </button>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+window.buySkill = async id => {
+  const sk = SKILLS.find(s=>s.id===id);
+  const d = state.userData;
+  if ((d.skills||{})[id]) { showNotif('すでに習得済みです', 'err'); return; }
+  if (d.cash < sk.cost) { showNotif('現金が足りません！', 'err'); return; }
+  d.cash -= sk.cost;
+  d.skills = d.skills || {};
+  d.skills[id] = true;
+  // スキル効果を反映
+  applySkillEffects();
+  try {
+    await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, skills:d.skills });
+    renderSidebar(); renderSkills();
+    showNotif(`「${sk.name}」を習得！`, 'ok');
+  } catch(e) { showNotif('保存エラー', 'err'); }
+};
+
+function applySkillEffects() {
+  const skills = state.userData?.skills || {};
+  // analyst: 変動幅拡大
+  // risk_mgr: 下落幅抑制
+  // これらはtickerPricesで参照
+}
+
+// ── アイテム ──
+function renderItems() {
+  const el = document.getElementById('items-grid');
+  const ownedItems = state.userData?.items || {};
+  let html = '';
+  ITEMS.forEach(it => {
+    const owned = ownedItems[it.id] || 0;
+    const isPermOwned = !it.consumable && owned > 0;
+    html += `<div class="item-card">
+      <div class="item-icon">${it.icon}</div>
+      <div class="item-name">${it.name}</div>
+      <div class="item-effect">${it.effect}</div>
+      <div class="item-cost">${fmt(it.cost)}</div>
+      <div class="item-desc">${it.desc}</div>
+      ${owned>0&&it.consumable?`<div style="font-size:11px;color:var(--blue);margin-top:4px">所持数: ${owned}個</div>`:''}
+      <button class="btn-shop ${isPermOwned?'owned':''}" onclick="buyItem('${it.id}')" ${isPermOwned?'disabled':''}>
+        ${isPermOwned?'✓ 所持中':'購入する'}
+      </button>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+window.buyItem = async id => {
+  const it = ITEMS.find(i=>i.id===id);
+  const d = state.userData;
+  if (!it.consumable && (d.items||{})[id]) { showNotif('すでに所持しています', 'err'); return; }
+  if (d.cash < it.cost) { showNotif('現金が足りません！', 'err'); return; }
+  d.cash -= it.cost;
+  d.items = d.items || {};
+  // アイテム効果を即時発動
+  if (it.id==='timemachine') {
+    d.cash *= 2;
+    showNotif('⏰ タイムマシン発動！現金が2倍になった！', 'ok');
+  } else if (it.id==='laptop') {
+    d.items[id] = 1;
+    showNotif('💻 トレーディングPC設置！価格更新が3秒に！', 'ok');
+  } else if (it.id==='suit') {
+    d.items[id] = 1;
+    d.name = '✨ ' + d.name.replace(/^[✨🚢]+\s*/,'');
+    showNotif('👔 高級スーツ着用！称号「紳士投資家」獲得！', 'ok');
+  } else if (it.id==='yacht') {
+    d.items[id] = 1;
+    d.name = '🚢 ' + d.name.replace(/^[✨🚢]+\s*/,'');
+    showNotif('⛵ ヨット購入！称号「億り人」獲得！', 'ok');
+  } else if (it.id==='news') {
+    d.items.news = (d.items.news||0) + 1;
+    showNotif('📰 経済新聞購入！株価ヒント10回分ゲット', 'ok');
+  } else if (it.id==='coffee') {
+    d.items.coffee = (d.items.coffee||0) + 1;
+    showNotif('☕ 缶コーヒーを飲んだ。元気になった気がする。', 'ok');
+  } else {
+    d.items[id] = (d.items[id]||0) + 1;
+    showNotif(`「${it.name}」を購入！`, 'ok');
+  }
+  try {
+    await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, items:d.items, name:d.name });
+    renderSidebar(); renderItems();
+  } catch(e) { showNotif('保存エラー', 'err'); }
+};
+
+function renderSidebar() {
+  if (!state.userData) return;
+  const d = state.userData;
+  const hVal = Object.entries(d.holdings||{}).reduce((s,[t,q])=>s+(state.prices[t]||0)*q, 0);
+  const total = d.cash + hVal, gain = total - INITIAL_CASH;
+  document.getElementById('sb-username').textContent = d.name||'---';
+  document.getElementById('sb-rank').textContent = rankLabel(total);
+  document.getElementById('sb-total').textContent = fmt(total);
+  document.getElementById('sb-cash').textContent = '現金: '+fmt(d.cash);
+  const el = document.getElementById('sb-pnl');
+  el.textContent = (gain>=0?'+':'')+fmt(gain)+' ('+pct(total,INITIAL_CASH)+'%)';
+  el.className = 'ps-pnl '+(gain>=0?'pos':'neg');
+}
+
+// グラフ描画（カードを再利用してちらつき防止）
+function renderMarket() {
+  const grid = document.getElementById('stocks-grid');
+  STOCKS.forEach(s => {
+    const price = state.prices[s.ticker];
+    const history = state.priceHistory[s.ticker];
+    const prev = history.length >= 2 ? history[history.length-2] : history[0];
+    const diff = price - prev;
+    const isPos = diff >= 0;
+    let card = document.getElementById('card-'+s.ticker);
+    if (!card) {
+      card = document.createElement('div');
+      card.className = 'stock-card';
+      card.id = 'card-'+s.ticker;
+      card.onclick = () => openModal(s.ticker);
+      grid.appendChild(card);
+    }
+    // テキスト部分のみ更新
+    let priceEl = card.querySelector('.stock-price');
+    let changeEl = card.querySelector('.stock-change');
+    if (!priceEl) {
+      card.innerHTML = `
+        <div class="stock-header">
+          <div><div class="stock-ticker">${s.ticker}</div><div class="stock-name">${s.name}</div></div>
+          <div class="stock-sector">${s.sector}</div>
+        </div>
+        <div class="stock-price"></div>
+        <div class="stock-change"></div>
+        <div class="mini-chart" id="mchart-${s.ticker}"></div>`;
+      priceEl = card.querySelector('.stock-price');
+      changeEl = card.querySelector('.stock-change');
+    }
+    priceEl.textContent = fmt(price);
+    priceEl.style.color = isPos ? 'var(--green)' : 'var(--red)';
+    changeEl.textContent = (isPos?'▲':'▼')+' '+fmt(Math.abs(diff))+' ('+pct(price,prev)+'%)';
+    changeEl.className = 'stock-change '+(isPos?'pos':'neg');
+    drawMiniChart(s.ticker, history, isPos);
+  });
+}
+
+function drawMiniChart(ticker, history, isPos) {
+  const wrap = document.getElementById('mchart-'+ticker);
+  if (!wrap) return;
+  const W = wrap.offsetWidth || 240;
+  const H = 48;
+  let canvas = wrap.querySelector('canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    wrap.appendChild(canvas);
+  }
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  if (history.length < 2) return;
+  const min = Math.min(...history), max = Math.max(...history);
+  const range = max - min || 1;
+  const color = isPos ? '#00e676' : '#ff1744';
+  const pts = history.map((v,i) => ({
+    x: (i/(history.length-1))*W,
+    y: H - ((v-min)/range)*(H-8) - 4
+  }));
+  // グラデーション塗り
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, H);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, H);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, color+'55');
+  grad.addColorStop(1, color+'00');
+  ctx.fillStyle = grad; ctx.fill();
+  // 折れ線
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke();
+  // 最新値の点
+  const last = pts[pts.length-1];
+  ctx.beginPath(); ctx.arc(last.x,last.y,3,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+}
+
+// 銘柄カラーパレット
+const STOCK_COLORS = [
+  '#448aff','#00e676','#ffd740','#ff1744','#e040fb','#ff6d00','#00bcd4','#69f0ae'
+];
+
+function drawOverviewChart() {
+  const canvas = document.getElementById('overview-canvas');
+  if (!canvas) return;
+  const W = canvas.offsetWidth || canvas.parentElement?.offsetWidth || 600;
+  const H = 160;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // グリッド線
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = (H / 4) * i;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  // 中央線（基準値=100%）
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 各銘柄を基準値比（%）で正規化して描画
+  const legendEl = document.getElementById('overview-legend');
+  let legendHTML = '';
+
+  STOCKS.forEach((s, si) => {
+    const history = state.priceHistory[s.ticker];
+    if (!history || history.length < 2) return;
+    const base = s.base;
+    // 正規化: (price / base - 1) → -0.5〜+0.5くらいの範囲をH全体にマップ
+    const normalized = history.map(p => (p / base - 1));
+    const allNorm = STOCKS.flatMap(st => (state.priceHistory[st.ticker]||[]).map(p => p/st.base - 1));
+    const minN = Math.min(...allNorm, -0.05);
+    const maxN = Math.max(...allNorm, 0.05);
+    const range = maxN - minN || 0.1;
+    const color = STOCK_COLORS[si % STOCK_COLORS.length];
+    const pts = normalized.map((v, i) => ({
+      x: (i / (history.length - 1)) * W,
+      y: H - ((v - minN) / range) * (H - 16) - 8
+    }));
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.85;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    // 末端に点
+    const last = pts[pts.length - 1];
+    ctx.beginPath(); ctx.arc(last.x, last.y, 3, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
+    // 凡例
+    const price = state.prices[s.ticker];
+    const pctVal = ((price / base - 1) * 100).toFixed(1);
+    const sign = pctVal >= 0 ? '+' : '';
+    legendHTML += '<div class="legend-item"><div class="legend-dot" style="background:'+color+'"></div>'+s.ticker+' <span style="color:'+(pctVal>=0?'var(--green)':'var(--red)')+'">'+sign+pctVal+'%</span></div>';
+  });
+  if (legendEl) legendEl.innerHTML = legendHTML;
+}
+
+function updateTickerBar() {
+  const items = STOCKS.map(s => {
+    const p = state.prices[s.ticker], h = state.priceHistory[s.ticker];
+    const prev = h.length>=2?h[h.length-2]:h[0], d = p-prev;
+    const color = d>=0?'#00e676':'#ff1744';
+    return `<span>${s.ticker} <span style="color:${color}">${fmt(p)} ${d>=0?'▲':'▼'}${Math.abs(pct(p,prev))}%</span></span>`;
+  });
+  document.getElementById('ticker-inner').innerHTML = items.join('')+items.join('');
+}
+
+let currentTicker = null;
+window.openModal = ticker => {
+  currentTicker = ticker;
+  const s = STOCKS.find(x=>x.ticker===ticker);
+  const price = state.prices[ticker], h = state.priceHistory[ticker];
+  const prev = h.length>=2?h[h.length-2]:h[0], diff = price-prev, isPos = diff>=0;
+  document.getElementById('m-ticker').textContent = ticker;
+  document.getElementById('m-name').textContent = s.name;
+  document.getElementById('m-price').textContent = fmt(price);
+  const chEl = document.getElementById('m-change');
+  chEl.textContent = (isPos?'+':'')+fmt(diff)+' ('+pct(price,prev)+'%)';
+  chEl.style.color = isPos?'var(--green)':'var(--red)';
+  document.getElementById('m-holding').textContent = (state.userData?.holdings?.[ticker]||0)+'株';
+  document.getElementById('trade-qty').value = 1;
+  setTradeMode('BUY');
+  document.getElementById('trade-modal').classList.add('open');
+};
+window.closeModal = () => { document.getElementById('trade-modal').classList.remove('open'); currentTicker=null; };
+
+function updateModalPrice() {
+  if (!currentTicker) return;
+  const price = state.prices[currentTicker], h = state.priceHistory[currentTicker];
+  const prev = h.length>=2?h[h.length-2]:h[0], diff = price-prev, isPos = diff>=0;
+  document.getElementById('m-price').textContent = fmt(price);
+  const chEl = document.getElementById('m-change');
+  chEl.textContent = (isPos?'+':'')+fmt(diff)+' ('+pct(price,prev)+'%)';
+  chEl.style.color = isPos?'var(--green)':'var(--red)';
+  updateTotal();
+}
+
+window.setTradeMode = mode => {
+  state.tradeMode = mode;
+  document.querySelectorAll('.trade-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector('.trade-tab.'+mode.toLowerCase()).classList.add('active');
+  const btn = document.getElementById('trade-btn');
+  btn.textContent = mode==='BUY'?'買う':'売る';
+  btn.className = 'btn-trade '+mode.toLowerCase();
+  document.getElementById('trade-msg').textContent = '';
+  updateTotal();
+};
+window.updateTotal = () => {
+  if (!currentTicker) return;
+  const qty = parseInt(document.getElementById('trade-qty').value)||0;
+  document.getElementById('trade-total-val').textContent = fmt(qty*state.prices[currentTicker]);
+};
+window.executeTrade = async () => {
+  const ticker = currentTicker, qty = parseInt(document.getElementById('trade-qty').value)||0;
+  const mode = state.tradeMode, price = state.prices[ticker], total = qty*price;
+  const msgEl = document.getElementById('trade-msg');
+  if (qty<=0) { msgEl.textContent='数量を入力してください'; msgEl.className='trade-msg err'; return; }
+  const d = state.userData;
+  if (mode==='BUY') {
+    if (d.cash<total) { msgEl.textContent='現金が足りません'; msgEl.className='trade-msg err'; return; }
+    d.cash-=total; d.holdings=d.holdings||{}; d.holdings[ticker]=(d.holdings[ticker]||0)+qty;
+  } else {
+    const have=d.holdings?.[ticker]||0;
+    if (have<qty) { msgEl.textContent='保有株数が足りません'; msgEl.className='trade-msg err'; return; }
+    d.cash+=total; d.holdings[ticker]=have-qty;
+    if (d.holdings[ticker]===0) delete d.holdings[ticker];
+  }
+  try {
+    await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, holdings:d.holdings });
+    await addDoc(collection(db,'users',state.user.uid,'history'), { type:mode,ticker,qty,price,total,timestamp:serverTimestamp() });
+    const hVal = Object.entries(d.holdings).reduce((s,[t,q])=>s+(state.prices[t]||0)*q,0);
+    await setDoc(doc(db,'ranking',state.user.uid), { name:d.name, totalAssets:d.cash+hVal, uid:state.user.uid });
+    msgEl.textContent = mode==='BUY'?`${qty}株 購入しました！`:`${qty}株 売却しました！`;
+    msgEl.className = 'trade-msg ok';
+    renderSidebar();
+    document.getElementById('m-holding').textContent = (d.holdings?.[ticker]||0)+'株';
+    showNotif(mode==='BUY'?`${ticker} ${qty}株 買い完了`:`${ticker} ${qty}株 売り完了`, 'ok');
+    setTimeout(closeModal, 1200);
+  } catch(e) { msgEl.textContent='エラー: '+e.message; msgEl.className='trade-msg err'; }
+};
+
+function renderHoldings() {
+  const el = document.getElementById('holdings-content');
+  const entries = Object.entries(state.userData?.holdings||{}).filter(([,q])=>q>0);
+  if (!entries.length) { el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:20px 0">保有株はありません。マーケットで購入してみよう！</div>'; return; }
+  let html=`<table class="holdings-table"><thead><tr><th>銘柄</th><th>会社名</th><th>数量</th><th>現在値</th><th>評価額</th><th>損益</th></tr></thead><tbody>`;
+  entries.forEach(([ticker,qty]) => {
+    const s=STOCKS.find(x=>x.ticker===ticker), price=state.prices[ticker]||0;
+    const value=price*qty, gain=value-(s?.base||0)*qty, isPos=gain>=0;
+    html+=`<tr><td style="color:var(--gold);font-weight:700">${ticker}</td><td style="color:var(--muted)">${s?.name||''}</td><td>${qty.toLocaleString()}</td><td>${fmt(price)}</td><td style="font-weight:700">${fmt(value)}</td><td style="color:${isPos?'var(--green)':'var(--red)'}">${isPos?'+':''}${fmt(gain)}</td></tr>`;
+  });
+  el.innerHTML=html+'</tbody></table>';
+}
+
+async function renderHistory() {
+  const el=document.getElementById('history-content');
+  el.innerHTML='<div style="color:var(--muted);font-size:12px">読み込み中...</div>';
+  try {
+    const snap=await getDocs(query(collection(db,'users',state.user.uid,'history'),orderBy('timestamp','desc'),limit(50)));
+    if (snap.empty) { el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:20px 0">取引履歴はありません</div>'; return; }
+    let html='<div class="history-list">';
+    snap.forEach(d => {
+      const r=d.data();
+      html+=`<div class="history-item"><div class="history-type ${r.type}">${r.type==='BUY'?'買い':'売り'}</div><div class="history-ticker">${r.ticker}</div><div class="history-detail">${r.qty}株 × ${fmt(r.price)}</div><div class="history-amount" style="color:${r.type==='BUY'?'var(--red)':'var(--green)'}">${r.type==='BUY'?'-':'+'}${fmt(r.total)}</div></div>`;
+    });
+    el.innerHTML=html+'</div>';
+  } catch(e) { el.innerHTML='<div style="color:var(--red)">エラー: '+e.message+'</div>'; }
+}
+
+async function renderRanking() {
+  const el=document.getElementById('ranking-content');
+  el.innerHTML='<div style="color:var(--muted);font-size:12px">読み込み中...</div>';
+  try {
+    const d=state.userData;
+    const hVal=Object.entries(d.holdings||{}).reduce((s,[t,q])=>s+(state.prices[t]||0)*q,0);
+    await setDoc(doc(db,'ranking',state.user.uid), { name:d.name, totalAssets:d.cash+hVal, uid:state.user.uid });
+    const snap=await getDocs(query(collection(db,'ranking'),orderBy('totalAssets','desc'),limit(20)));
+    let html='<div class="rank-list">'; let rank=1;
+    snap.forEach(d => {
+      const r=d.data(), isMe=r.uid===state.user.uid;
+      html+=`<div class="rank-item"><div class="rank-num">${rank}</div><div class="rank-name">${r.name}${isMe?'<span class="rank-me">あなた</span>':''}</div><div class="rank-value">${fmt(r.totalAssets)}</div></div>`;
+      rank++;
+    });
+    el.innerHTML=html+'</div>';
+  } catch(e) { el.innerHTML='<div style="color:var(--red)">エラー: '+e.message+'</div>'; }
+}
+
+function showNotif(msg, type) {
+  const el=document.getElementById('notif');
+  el.textContent=msg; el.className='notif '+type+' show';
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ── 管理者 ──
+const ADMIN_CODE = 'ryo1031junn0106';
+let adminAuthed = false;
+
+window.verifyAdmin = () => {
+  const input = document.getElementById('admin-code-input').value;
+  const msg = document.getElementById('admin-auth-msg');
+  if (input === ADMIN_CODE) {
+    adminAuthed = true;
+    document.getElementById('admin-panel').style.display = 'block';
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✓ 認証成功！';
+    document.getElementById('admin-cash-input').value = Math.round(state.userData?.cash || 0);
+  } else {
+    adminAuthed = false;
+    msg.style.color = 'var(--red)';
+    msg.textContent = '✗ コードが違います';
+  }
+};
+
+window.adminSetCash = async () => {
+  if (!adminAuthed) return;
+  const val = parseInt(document.getElementById('admin-cash-input').value);
+  const msg = document.getElementById('admin-cash-msg');
+  if (isNaN(val) || val < 0) { msg.style.color='var(--red)'; msg.textContent='有効な金額を入力してください'; return; }
+  state.userData.cash = val;
+  try {
+    await updateDoc(doc(db,'users',state.user.uid), { cash: val });
+    renderSidebar();
+    msg.style.color = 'var(--green)';
+    msg.textContent = `✓ 現金を ${fmt(val)} に書き換えました`;
+    showNotif('💰 所持金を書き換えました', 'ok');
+  } catch(e) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'エラー: ' + e.message;
+  }
+};
+
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+document.getElementById('trade-modal').addEventListener('click', e=>{ if(e.target===e.currentTarget) closeModal(); });
+
+// ════════════════════════════════
+//  SHOP
+// ════════════════════════════════
+
+// 不動産データ
+const REAL_ESTATES = [
+  { id:'apt',   icon:'🏠', name:'ワンルームアパート', cost:50000,   income:500,   desc:'小さいけど安定した家賃収入。初心者の第一歩。' },
+  { id:'house', icon:'🏡', name:'一戸建て住宅',       cost:150000,  income:2000,  desc:'ファミリー向け物件。安定した収益が見込める。' },
+  { id:'condo', icon:'🏢', name:'マンション1室',       cost:500000,  income:8000,  desc:'都市部の人気物件。家賃収入も大きくなる。' },
+  { id:'tower', icon:'🏙️', name:'タワーマンション',   cost:1500000, income:30000, desc:'超高級物件。毎ティック3万円の不労所得！' },
+  { id:'hotel', icon:'🏨', name:'ブティックホテル',   cost:3000000, income:80000, desc:'宿泊業で最大の収益。伝説プレイヤー向け。' },
+];
+
+// スキルデータ
+const SKILLS = [
+  { id:'analyst',  icon:'🔍', name:'株価アナリスト',   cost:80000,  effect:'+5% 変動幅拡大（チャンス増加）',  desc:'相場の動きを先読みする力が身につく。株価の変動幅が5%に拡大し、大きな利益チャンスが増える。', tag:'PASSIVE' },
+  { id:'risk_mgr', icon:'🛡️', name:'リスク管理術',    cost:60000,  effect:'下落幅を-1%に抑制',               desc:'損失を最小化するテクニック。株価の下落幅が最大1%に抑えられる。', tag:'PASSIVE' },
+  { id:'insider',  icon:'📡', name:'情報収集スキル',   cost:120000, effect:'次の変動方向をヒント表示',         desc:'マーケット画面に「↑上がりそう/↓下がりそう」のヒントが表示される。', tag:'INFO' },
+  { id:'leverage', icon:'⚡', name:'レバレッジ取引',   cost:200000, effect:'取引額 1.5倍の損益',              desc:'同じ取引でも利益・損失が1.5倍になる諸刃の剣スキル。', tag:'BOOST' },
+  { id:'dividend', icon:'💹', name:'配当受取スキル',   cost:100000, effect:'保有株から毎ティック配当収入',      desc:'保有株数×10円が毎ティック自動で入ってくる。', tag:'INCOME' },
+];
+
+// アイテムデータ
+const ITEMS = [
+  { id:'coffee',   icon:'☕', name:'缶コーヒー',         cost:500,    effect:'元気回復（見た目のみ）', desc:'疲れたトレーダーの必需品。ゲーム的な効果はないけど雰囲気が出る。', consumable: true },
+  { id:'news',     icon:'📰', name:'経済新聞1ヶ月分',   cost:3000,   effect:'株価ヒント10回分',       desc:'次の価格変動の方向が10回だけ事前にわかる！', consumable: true },
+  { id:'laptop',   icon:'💻', name:'トレーディングPC',  cost:30000,  effect:'価格更新を3秒に短縮',    desc:'高性能PCで情報処理が速くなる。株価更新が5秒→3秒に！', consumable: false },
+  { id:'suit',     icon:'👔', name:'高級スーツ',         cost:50000,  effect:'称号「紳士投資家」獲得', desc:'一流投資家の証。サイドバーの名前に✨がつく。', consumable: false },
+  { id:'yacht',    icon:'⛵', name:'ヨット',             cost:500000, effect:'称号「億り人」獲得',     desc:'成功の象徴。名前に🚢がつき、ランキングで目立つ！', consumable: false },
+  { id:'timemachine',icon:'⏰',name:'タイムマシン',      cost:999999, effect:'現金を2倍にする（1回）', desc:'伝説のアイテム。購入した瞬間に現金が2倍になる！', consumable: true },
+];
+
+window.switchShopTab = tab => {
+  document.querySelectorAll('.shop-tab').forEach((t,i)=>t.classList.toggle('active', ['gacha','realestate','skill','items'][i]===tab));
+  document.querySelectorAll('.shop-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('shop-'+tab).classList.add('active');
+  if (tab==='realestate') renderRealEstate();
+  if (tab==='skill') renderSkills();
+  if (tab==='items') renderItems();
+};
+
+window.navTo = page => {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.page===page));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if (page==='holdings') renderHoldings();
+  if (page==='history') renderHistory();
+  if (page==='ranking') renderRanking();
+  if (page==='shop') { switchShopTab('gacha'); }
+};
+</script>
+</body>
+</html>
