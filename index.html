@@ -796,7 +796,7 @@ onAuthStateChanged(auth, async user => {
 
     state.user = user;
     const snap = await getDoc(doc(db,'users',user.uid));
-    state.userData = snap.exists() ? snap.data() : { name: user.displayName||user.email, cash: INITIAL_CASH, holdings: {} };
+    state.userData = snap.exists() ? { ...snap.data() } : { name: user.displayName||user.email, cash: INITIAL_CASH, holdings: {} };
     if (!snap.exists()) await setDoc(doc(db,'users',user.uid), { ...state.userData, createdAt: serverTimestamp() });
 
     // オフライン中の経過を計算
@@ -916,10 +916,10 @@ window.buyRealEstate = async id => {
   d.cash -= re.cost;
   d.realestate = d.realestate || {};
   d.realestate[id] = (d.realestate[id]||0) + 1;
+  renderSidebar(); renderRealEstate();
+  showNotif(`${re.name} を購入！毎ティック +${re.income.toLocaleString()}円`, 'ok');
   try {
     await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, realestate:d.realestate });
-    renderSidebar(); renderRealEstate();
-    showNotif(`${re.name} を購入！毎ティック +${re.income.toLocaleString()}円`, 'ok');
   } catch(e) { showNotif('保存エラー', 'err'); }
 };
 
@@ -955,10 +955,10 @@ window.buySkill = async id => {
   d.skills[id] = true;
   // スキル効果を反映
   applySkillEffects();
+  renderSidebar(); renderSkills();
+  showNotif(`「${sk.name}」を習得！`, 'ok');
   try {
     await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, skills:d.skills });
-    renderSidebar(); renderSkills();
-    showNotif(`「${sk.name}」を習得！`, 'ok');
   } catch(e) { showNotif('保存エラー', 'err'); }
 };
 
@@ -1024,10 +1024,10 @@ window.buyItem = async id => {
     d.items[id] = (d.items[id]||0) + 1;
     showNotif(`「${it.name}」を購入！`, 'ok');
   }
+  renderSidebar(); renderItems();
   try {
     await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, items:d.items, name:d.name });
-    renderSidebar(); renderItems();
-  } catch(e) { showNotif('保存エラー', 'err'); }
+  } catch(e) { console.error('保存エラー:', e.message); }
 };
 
 function renderSidebar() {
@@ -1261,18 +1261,20 @@ window.executeTrade = async () => {
     d.cash+=total; d.holdings[ticker]=have-qty;
     if (d.holdings[ticker]===0) delete d.holdings[ticker];
   }
+  // まずローカル表示を即時更新（Firestore保存前でも見た目に反映）
+  renderSidebar();
+  document.getElementById('m-holding').textContent = (d.holdings?.[ticker]||0)+'株';
+  msgEl.textContent = mode==='BUY'?`${qty}株 購入しました！`:`${qty}株 売却しました！`;
+  msgEl.className = 'trade-msg ok';
+  showNotif(mode==='BUY'?`${ticker} ${qty}株 買い完了`:`${ticker} ${qty}株 売り完了`, 'ok');
+  setTimeout(closeModal, 1200);
+  // Firestoreへの保存はバックグラウンドで
   try {
     await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, holdings:d.holdings });
     await addDoc(collection(db,'users',state.user.uid,'history'), { type:mode,ticker,qty,price,total,timestamp:serverTimestamp() });
     const hVal = Object.entries(d.holdings).reduce((s,[t,q])=>s+(state.prices[t]||0)*q,0);
     await setDoc(doc(db,'ranking',state.user.uid), { name:d.name, totalAssets:d.cash+hVal, uid:state.user.uid });
-    msgEl.textContent = mode==='BUY'?`${qty}株 購入しました！`:`${qty}株 売却しました！`;
-    msgEl.className = 'trade-msg ok';
-    renderSidebar();
-    document.getElementById('m-holding').textContent = (d.holdings?.[ticker]||0)+'株';
-    showNotif(mode==='BUY'?`${ticker} ${qty}株 買い完了`:`${ticker} ${qty}株 売り完了`, 'ok');
-    setTimeout(closeModal, 1200);
-  } catch(e) { msgEl.textContent='エラー: '+e.message; msgEl.className='trade-msg err'; }
+  } catch(e) { msgEl.textContent='保存エラー: '+e.message; msgEl.className='trade-msg err'; }
 };
 
 function renderHoldings() {
