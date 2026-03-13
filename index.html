@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BULLRUN — 投資シミュレーター</title>
-   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💹</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💹</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -636,11 +636,13 @@ const pct = (a, b) => b === 0 ? '0.00' : ((a - b) / b * 100).toFixed(2);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const rankLabel = t => t >= 10_000_000 ? '★★★ 伝説' : t >= 5_000_000 ? '★★ エリート' : t >= 2_000_000 ? '★ プロ' : '○ 新人';
 
-function initPrices(savedPrices) {
+function initPrices(savedPrices, savedHistory) {
   STOCKS.forEach(s => {
     const p = savedPrices?.[s.ticker] || s.base;
     state.prices[s.ticker] = p;
-    state.priceHistory[s.ticker] = Array(10).fill(p);
+    state.priceHistory[s.ticker] = (savedHistory?.[s.ticker]?.length >= 2)
+      ? savedHistory[s.ticker]
+      : Array(10).fill(p);
   });
 }
 
@@ -747,9 +749,12 @@ function tickPrices() {
   if (window._tickCount % 5 === 0 && state.user && state.userData) {
     const latestPrices = {};
     STOCKS.forEach(s => { latestPrices[s.ticker] = state.prices[s.ticker]; });
+    const latestHistory = {};
+    STOCKS.forEach(s => { latestHistory[s.ticker] = state.priceHistory[s.ticker].slice(-30); });
     updateDoc(doc(db,'users',state.user.uid), {
       cash: state.userData.cash,
       lastPrices: latestPrices,
+      lastHistory: latestHistory,
       lastSeen: Date.now(),
     }).catch(()=>{});
   }
@@ -815,6 +820,7 @@ onAuthStateChanged(auth, async user => {
       items: raw.items ? { ...raw.items } : {},
       lastSeen: raw.lastSeen || null,
       lastPrices: raw.lastPrices ? { ...raw.lastPrices } : {},
+      lastHistory: raw.lastHistory ? { ...raw.lastHistory } : {},
     };
     if (!snap.exists()) await setDoc(doc(db,'users',user.uid), { ...state.userData, createdAt: serverTimestamp() });
 
@@ -827,7 +833,7 @@ onAuthStateChanged(auth, async user => {
 
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('game-screen').classList.add('active');
-    initPrices(state.userData.lastPrices);
+    initPrices(state.userData.lastPrices, state.userData.lastHistory);
     setTimeout(() => {
       renderMarket(); renderSidebar(); updateTickerBar(); drawOverviewChart();
       if (window._offlineSummary) {
