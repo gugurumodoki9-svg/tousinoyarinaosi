@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BULLRUN — 投資シミュレーター</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💹</text></svg>">
+   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💹</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -739,12 +739,19 @@ function tickPrices() {
   // 現金デルタを反映
   if (cashDelta > 0 && state.userData) {
     state.userData.cash += cashDelta;
-    // 5ティックごとにFirestoreに保存（負荷軽減）
-    if (!window._tickCount) window._tickCount = 0;
-    window._tickCount++;
-    if (window._tickCount % 5 === 0) {
-      updateDoc(doc(db,'users',state.user.uid), { cash: state.userData.cash }).catch(()=>{});
-    }
+  }
+
+  // 5ティックごとに株価・時刻・現金をまとめてFirestoreに保存
+  if (!window._tickCount) window._tickCount = 0;
+  window._tickCount++;
+  if (window._tickCount % 5 === 0 && state.user && state.userData) {
+    const latestPrices = {};
+    STOCKS.forEach(s => { latestPrices[s.ticker] = state.prices[s.ticker]; });
+    updateDoc(doc(db,'users',state.user.uid), {
+      cash: state.userData.cash,
+      lastPrices: latestPrices,
+      lastSeen: Date.now(),
+    }).catch(()=>{});
   }
 
   renderMarket();
