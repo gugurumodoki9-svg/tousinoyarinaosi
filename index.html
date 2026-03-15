@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BULLRUN — 投資シミュレーター</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💹</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -305,9 +304,9 @@ body::after {
       <div class="user-rank" id="sb-rank">○ 新人</div>
     </div>
     <div class="portfolio-summary">
-      <div class="ps-label">現金</div>
-      <div class="ps-value" id="sb-cash">¥0</div>
-      <div class="ps-cash" id="sb-total">総資産: ¥0</div>
+      <div class="ps-label">総資産</div>
+      <div class="ps-value" id="sb-total">¥0</div>
+      <div class="ps-cash" id="sb-cash">現金: ¥0</div>
       <div class="ps-pnl" id="sb-pnl">±¥0 (0%)</div>
     </div>
     <nav class="nav">
@@ -636,13 +635,11 @@ const pct = (a, b) => b === 0 ? '0.00' : ((a - b) / b * 100).toFixed(2);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const rankLabel = t => t >= 10_000_000 ? '★★★ 伝説' : t >= 5_000_000 ? '★★ エリート' : t >= 2_000_000 ? '★ プロ' : '○ 新人';
 
-function initPrices(savedPrices, savedHistory) {
+function initPrices(savedPrices) {
   STOCKS.forEach(s => {
     const p = savedPrices?.[s.ticker] || s.base;
     state.prices[s.ticker] = p;
-    state.priceHistory[s.ticker] = (savedHistory?.[s.ticker]?.length >= 2)
-      ? savedHistory[s.ticker]
-      : Array(10).fill(p);
+    state.priceHistory[s.ticker] = Array(10).fill(p);
   });
 }
 
@@ -706,6 +703,92 @@ function applyOfflineProgress(userData) {
   window._offlineSummary = { timeStr, cashDelta, ticks: applyTicks };
 }
 
+
+// ── ランダムイベント ──
+const EVENTS = [
+  // 個別銘柄イベント（悪）
+  { id:'scandal',   type:'bad',    target:'single', mult:0.70, label:'💥 不祥事発覚！',      tmpl: t => `${t}で不正会計が発覚！株価急落！` },
+  { id:'recall',    type:'bad',    target:'single', mult:0.75, label:'⚠️ 製品リコール',       tmpl: t => `${t}が大規模リコールを発表。信頼失墜…` },
+  { id:'ceo_quit',  type:'bad',    target:'single', mult:0.80, label:'😱 CEO突然辞任',        tmpl: t => `${t}のCEOが突然辞任。経営混乱で株価下落。` },
+  { id:'hack',      type:'bad',    target:'single', mult:0.78, label:'🔓 サイバー攻撃',       tmpl: t => `${t}がサイバー攻撃を受けた！システム障害で株価急落。` },
+  { id:'lawsuit',   type:'bad',    target:'single', mult:0.82, label:'⚖️ 巨額訴訟',           tmpl: t => `${t}に巨額の損害賠償訴訟！株価が急落。` },
+  // 個別銘柄イベント（良）
+  { id:'earnings',  type:'good',   target:'single', mult:1.30, label:'📊 好決算発表！',       tmpl: t => `${t}が過去最高益を発表！株価爆上がり！` },
+  { id:'buyout',    type:'good',   target:'single', mult:1.40, label:'🤝 買収合意！',         tmpl: t => `${t}が大手に買収される見通し！プレミアムで株価急騰！` },
+  { id:'patent',    type:'good',   target:'single', mult:1.25, label:'💡 画期的特許取得',     tmpl: t => `${t}が革新的特許を取得！将来性に期待で急騰！` },
+  { id:'collab',    type:'good',   target:'single', mult:1.20, label:'🌟 大型提携発表',       tmpl: t => `${t}が世界的企業との提携を発表！株価上昇！` },
+  { id:'split',     type:'good',   target:'single', mult:1.35, label:'📈 株式分割発表',       tmpl: t => `${t}が株式分割を発表！個人投資家に人気で急騰！` },
+  // 市場全体イベント（悪）
+  { id:'crash',     type:'bad',    target:'all',    mult:0.85, label:'📉 市場暴落！',         tmpl: _ => `世界的な景気後退懸念で全銘柄が暴落！` },
+  { id:'rate_hike', type:'bad',    target:'all',    mult:0.88, label:'🏦 利上げショック',     tmpl: _ => `中央銀行が大幅利上げを発表。全市場が売られた。` },
+  { id:'war',       type:'bad',    target:'all',    mult:0.82, label:'💣 地政学リスク',       tmpl: _ => `地政学的緊張が高まり全市場が急落！` },
+  // 市場全体イベント（良）
+  { id:'boom',      type:'good',   target:'all',    mult:1.15, label:'🚀 市場バブル！',       tmpl: _ => `好景気で全銘柄が一斉に上昇！強気相場突入！` },
+  { id:'cut',       type:'good',   target:'all',    mult:1.12, label:'💸 利下げ発表！',       tmpl: _ => `中央銀行が利下げを発表！全市場がラリー！` },
+  { id:'recovery',  type:'good',   target:'all',    mult:1.10, label:'🌈 景気回復宣言',       tmpl: _ => `政府が景気回復を宣言。全銘柄に買いが集まった！` },
+];
+
+// イベント発生確率: 1ティック = 約1.5%（1分に1回くらい）
+const EVENT_PROB = 0.015;
+
+function maybeFireEvent() {
+  if (Math.random() > EVENT_PROB) return;
+  const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+  let targetTicker = null;
+
+  if (ev.target === 'single') {
+    // ランダムに1銘柄選ぶ
+    const s = STOCKS[Math.floor(Math.random() * STOCKS.length)];
+    targetTicker = s.ticker;
+    const cur = state.prices[targetTicker];
+    const next = Math.round(clamp(cur * ev.mult, s.base * 0.3, s.base * 3));
+    state.prices[targetTicker] = next;
+    const h = state.priceHistory[targetTicker];
+    h.push(next);
+    if (h.length > 30) h.shift();
+  } else {
+    // 全銘柄に影響
+    STOCKS.forEach(s => {
+      const cur = state.prices[s.ticker];
+      const next = Math.round(clamp(cur * ev.mult, s.base * 0.3, s.base * 3));
+      state.prices[s.ticker] = next;
+      const h = state.priceHistory[s.ticker];
+      h.push(next);
+      if (h.length > 30) h.shift();
+    });
+  }
+
+  // 通知表示
+  const msg = ev.tmpl(targetTicker || '');
+  showEventNotif(ev.label, msg, ev.type);
+}
+
+function showEventNotif(label, msg, type) {
+  // 既存のイベント通知があれば消す
+  const old = document.getElementById('event-notif');
+  if (old) old.remove();
+
+  const el = document.createElement('div');
+  el.id = 'event-notif';
+  el.style.cssText = `
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
+    z-index:998; background:var(--panel); border:1px solid ${type==='bad'?'var(--red)':'var(--green)'};
+    border-radius:6px; padding:16px 24px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,.6);
+    min-width:300px; max-width:480px; transition:transform .4s cubic-bezier(.175,.885,.32,1.275);
+    border-left:4px solid ${type==='bad'?'var(--red)':'var(--green)'};
+  `;
+  el.innerHTML = `
+    <div style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:${type==='bad'?'var(--red)':'var(--green)'};margin-bottom:6px">${label}</div>
+    <div style="font-size:13px;color:var(--text)">${msg}</div>
+  `;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.transform = 'translateX(-50%) translateY(0)'; }, 50);
+  setTimeout(() => {
+    el.style.transform = 'translateX(-50%) translateY(80px)';
+    setTimeout(() => el.remove(), 400);
+  }, 5000);
+}
+
 function tickPrices() {
   const skills = state.userData?.skills || {};
   const realestate = state.userData?.realestate || {};
@@ -738,25 +821,18 @@ function tickPrices() {
     if (h.length > 30) h.shift();
   });
 
+  // ランダムイベント発生判定
+  maybeFireEvent();
+
   // 現金デルタを反映
   if (cashDelta > 0 && state.userData) {
     state.userData.cash += cashDelta;
-  }
-
-  // 5ティックごとに株価・時刻・現金をまとめてFirestoreに保存
-  if (!window._tickCount) window._tickCount = 0;
-  window._tickCount++;
-  if (window._tickCount % 5 === 0 && state.user && state.userData) {
-    const latestPrices = {};
-    STOCKS.forEach(s => { latestPrices[s.ticker] = state.prices[s.ticker]; });
-    const latestHistory = {};
-    STOCKS.forEach(s => { latestHistory[s.ticker] = state.priceHistory[s.ticker].slice(-30); });
-    updateDoc(doc(db,'users',state.user.uid), {
-      cash: state.userData.cash,
-      lastPrices: latestPrices,
-      lastHistory: latestHistory,
-      lastSeen: Date.now(),
-    }).catch(()=>{});
+    // 5ティックごとにFirestoreに保存（負荷軽減）
+    if (!window._tickCount) window._tickCount = 0;
+    window._tickCount++;
+    if (window._tickCount % 5 === 0) {
+      updateDoc(doc(db,'users',state.user.uid), { cash: state.userData.cash }).catch(()=>{});
+    }
   }
 
   renderMarket();
@@ -809,19 +885,7 @@ onAuthStateChanged(auth, async user => {
 
     state.user = user;
     const snap = await getDoc(doc(db,'users',user.uid));
-    const raw = snap.exists() ? snap.data() : { name: user.displayName||user.email, cash: INITIAL_CASH, holdings: {} };
-    // Firestoreのデータを安全にコピー（Timestampなど非JSON型を除外）
-    state.userData = {
-      name: raw.name || '',
-      cash: Number(raw.cash) || INITIAL_CASH,
-      holdings: raw.holdings ? { ...raw.holdings } : {},
-      realestate: raw.realestate ? { ...raw.realestate } : {},
-      skills: raw.skills ? { ...raw.skills } : {},
-      items: raw.items ? { ...raw.items } : {},
-      lastSeen: raw.lastSeen || null,
-      lastPrices: raw.lastPrices ? { ...raw.lastPrices } : {},
-      lastHistory: raw.lastHistory ? { ...raw.lastHistory } : {},
-    };
+    state.userData = snap.exists() ? JSON.parse(JSON.stringify(snap.data())) : { name: user.displayName||user.email, cash: INITIAL_CASH, holdings: {} };
     if (!snap.exists()) await setDoc(doc(db,'users',user.uid), { ...state.userData, createdAt: serverTimestamp() });
 
     // オフライン中の経過を計算
@@ -833,7 +897,7 @@ onAuthStateChanged(auth, async user => {
 
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('game-screen').classList.add('active');
-    initPrices(state.userData.lastPrices, state.userData.lastHistory);
+    initPrices(state.userData.lastPrices);
     setTimeout(() => {
       renderMarket(); renderSidebar(); updateTickerBar(); drawOverviewChart();
       if (window._offlineSummary) {
@@ -1058,12 +1122,13 @@ window.buyItem = async id => {
 function renderSidebar() {
   if (!state.userData) return;
   const d = state.userData;
+  d.cash = Number(d.cash) || 0; // 型保証
   const hVal = Object.entries(d.holdings||{}).reduce((s,[t,q])=>s+(state.prices[t]||0)*Number(q), 0);
   const total = d.cash + hVal, gain = total - INITIAL_CASH;
   document.getElementById('sb-username').textContent = d.name||'---';
   document.getElementById('sb-rank').textContent = rankLabel(total);
-  document.getElementById('sb-cash').textContent = fmt(d.cash);
-  document.getElementById('sb-total').textContent = '総資産: '+fmt(total);
+  document.getElementById('sb-total').textContent = fmt(total);
+  document.getElementById('sb-cash').textContent = '現金: '+fmt(d.cash);
   const el = document.getElementById('sb-pnl');
   el.textContent = (gain>=0?'+':'')+fmt(gain)+' ('+pct(total,INITIAL_CASH)+'%)';
   el.className = 'ps-pnl '+(gain>=0?'pos':'neg');
@@ -1381,8 +1446,7 @@ window.adminSetCash = async () => {
   if (isNaN(val) || val < 0) { msg.style.color='var(--red)'; msg.textContent='有効な金額を入力してください'; return; }
   state.userData.cash = val;
   try {
-    // setDocのmergeオプションでcashだけ確実に上書き
-    await setDoc(doc(db,'users',state.user.uid), { cash: val }, { merge: true });
+    await updateDoc(doc(db,'users',state.user.uid), { cash: val });
     renderSidebar();
     msg.style.color = 'var(--green)';
     msg.textContent = `✓ 現金を ${fmt(val)} に書き換えました`;
