@@ -304,9 +304,9 @@ body::after {
       <div class="user-rank" id="sb-rank">○ 新人</div>
     </div>
     <div class="portfolio-summary">
-      <div class="ps-label">総資産</div>
-      <div class="ps-value" id="sb-total">¥0</div>
-      <div class="ps-cash" id="sb-cash">現金: ¥0</div>
+      <div class="ps-label">現金</div>
+      <div class="ps-value" id="sb-cash">¥0</div>
+      <div class="ps-cash" id="sb-total">総資産: ¥0</div>
       <div class="ps-pnl" id="sb-pnl">±¥0 (0%)</div>
     </div>
     <nav class="nav">
@@ -1127,8 +1127,8 @@ function renderSidebar() {
   const total = d.cash + hVal, gain = total - INITIAL_CASH;
   document.getElementById('sb-username').textContent = d.name||'---';
   document.getElementById('sb-rank').textContent = rankLabel(total);
-  document.getElementById('sb-total').textContent = fmt(total);
-  document.getElementById('sb-cash').textContent = '現金: '+fmt(d.cash);
+  document.getElementById('sb-cash').textContent = fmt(d.cash);
+  document.getElementById('sb-total').textContent = '総資産: '+fmt(total);
   const el = document.getElementById('sb-pnl');
   el.textContent = (gain>=0?'+':'')+fmt(gain)+' ('+pct(total,INITIAL_CASH)+'%)';
   el.className = 'ps-pnl '+(gain>=0?'pos':'neg');
