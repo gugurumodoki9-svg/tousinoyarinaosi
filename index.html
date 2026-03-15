@@ -592,7 +592,7 @@ body::after {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyAal3KAzh4IWnvP_UUNHFJGVV2mTLqj3hE",
@@ -637,11 +637,13 @@ const pct = (a, b) => b === 0 ? '0.00' : ((a - b) / b * 100).toFixed(2);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const rankLabel = t => t >= 10_000_000 ? '★★★ 伝説' : t >= 5_000_000 ? '★★ エリート' : t >= 2_000_000 ? '★ プロ' : '○ 新人';
 
-function initPrices(savedPrices) {
+function initPrices(savedPrices, savedHistory) {
   STOCKS.forEach(s => {
     const p = savedPrices?.[s.ticker] || s.base;
     state.prices[s.ticker] = p;
-    state.priceHistory[s.ticker] = Array(10).fill(p);
+    state.priceHistory[s.ticker] = (savedHistory?.[s.ticker]?.length >= 2)
+      ? savedHistory[s.ticker]
+      : Array(10).fill(p);
   });
 }
 
@@ -829,12 +831,23 @@ function tickPrices() {
   // 現金デルタを反映
   if (cashDelta > 0 && state.userData) {
     state.userData.cash += cashDelta;
-    // 5ティックごとにFirestoreに保存（負荷軽減）
-    if (!window._tickCount) window._tickCount = 0;
-    window._tickCount++;
-    if (window._tickCount % 5 === 0) {
-      updateDoc(doc(db,'users',state.user.uid), { cash: state.userData.cash }).catch(()=>{});
-    }
+  }
+
+  // 5ティックごとに株価・履歴・現金をまとめて保存
+  if (!window._tickCount) window._tickCount = 0;
+  window._tickCount++;
+  if (window._tickCount % 5 === 0 && state.user && state.userData) {
+    const lp = {}, lh = {};
+    STOCKS.forEach(s => {
+      lp[s.ticker] = state.prices[s.ticker];
+      lh[s.ticker] = state.priceHistory[s.ticker].slice(-30);
+    });
+    updateDoc(doc(db,'users',state.user.uid), {
+      cash: state.userData.cash,
+      lastPrices: lp,
+      lastHistory: lh,
+      lastSeen: Date.now(),
+    }).catch(()=>{});
   }
 
   renderMarket();
@@ -887,7 +900,18 @@ onAuthStateChanged(auth, async user => {
 
     state.user = user;
     const snap = await getDoc(doc(db,'users',user.uid));
-    state.userData = snap.exists() ? JSON.parse(JSON.stringify(snap.data())) : { name: user.displayName||user.email, cash: INITIAL_CASH, holdings: {} };
+    const raw = snap.exists() ? snap.data() : { name: user.displayName||user.email, cash: INITIAL_CASH, holdings: {} };
+    state.userData = {
+      name: raw.name || '',
+      cash: Number(raw.cash) || INITIAL_CASH,
+      holdings:   raw.holdings   ? { ...raw.holdings }   : {},
+      realestate: raw.realestate ? { ...raw.realestate } : {},
+      skills:     raw.skills     ? { ...raw.skills }     : {},
+      items:      raw.items      ? { ...raw.items }      : {},
+      lastSeen:   raw.lastSeen   || null,
+      lastPrices: raw.lastPrices ? { ...raw.lastPrices } : {},
+      lastHistory: raw.lastHistory ? { ...raw.lastHistory } : {},
+    };
     if (!snap.exists()) await setDoc(doc(db,'users',user.uid), { ...state.userData, createdAt: serverTimestamp() });
 
     // オフライン中の経過を計算
@@ -899,7 +923,7 @@ onAuthStateChanged(auth, async user => {
 
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('game-screen').classList.add('active');
-    initPrices(state.userData.lastPrices);
+    initPrices(state.userData.lastPrices, state.userData.lastHistory);
     setTimeout(() => {
       renderMarket(); renderSidebar(); updateTickerBar(); drawOverviewChart();
       if (window._offlineSummary) {
@@ -1384,6 +1408,12 @@ window.executeTrade = async () => {
   try {
     await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, holdings:d.holdings });
     await addDoc(collection(db,'users',state.user.uid,'history'), { type:mode,ticker,qty,price,total,timestamp:serverTimestamp() });
+    // 14件超えたら古い順に削除
+    const histSnap = await getDocs(query(collection(db,'users',state.user.uid,'history'),orderBy('timestamp','asc')));
+    if (histSnap.size > 14) {
+      const toDelete = histSnap.docs.slice(0, histSnap.size - 14);
+      await Promise.all(toDelete.map(d => deleteDoc(d.ref)));
+    }
     const hVal = Object.entries(d.holdings).reduce((s,[t,q])=>s+(state.prices[t]||0)*q,0);
     await setDoc(doc(db,'ranking',state.user.uid), { name:d.name, totalAssets:d.cash+hVal, uid:state.user.uid });
   } catch(e) { msgEl.textContent='保存エラー: '+e.message; msgEl.className='trade-msg err'; }
@@ -1406,7 +1436,7 @@ async function renderHistory() {
   const el=document.getElementById('history-content');
   el.innerHTML='<div style="color:var(--muted);font-size:12px">読み込み中...</div>';
   try {
-    const snap=await getDocs(query(collection(db,'users',state.user.uid,'history'),orderBy('timestamp','desc'),limit(50)));
+    const snap=await getDocs(query(collection(db,'users',state.user.uid,'history'),orderBy('timestamp','desc'),limit(14)));
     if (snap.empty) { el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:20px 0">取引履歴はありません</div>'; return; }
     let html='<div class="history-list">';
     snap.forEach(d => {
