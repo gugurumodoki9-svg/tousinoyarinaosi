@@ -200,6 +200,8 @@ body::after {
 .btn-shop { width: 100%; padding: 10px; background: var(--blue); border: none; border-radius: 3px; color: #fff; font-family: var(--font-jp); font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s; margin-top: 12px; }
 .btn-shop:hover { background: #5a9bff; box-shadow: 0 0 16px rgba(68,138,255,.4); }
 .btn-shop:disabled { opacity: .4; cursor: not-allowed; background: var(--border); }
+.btn-shop-sell { flex:1; padding: 10px; background: transparent; border: 1px solid var(--red); border-radius: 3px; color: var(--red); font-family: var(--font-jp); font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s; }
+.btn-shop-sell:hover { background: rgba(255,23,68,.15); box-shadow: 0 0 12px rgba(255,23,68,.3); }
 .btn-shop.owned { background: var(--bg3); border: 1px solid var(--border); color: var(--green); cursor: default; }
 
 /* GACHA */
@@ -985,6 +987,7 @@ function renderRealEstate() {
     const count = owned[re.id] || 0;
     const isOwned = count > 0;
     const totalIncome = re.income * count;
+    const sellPrice = Math.round(re.cost * 0.7); // 売却額は購入額の70%
     html += `<div class="re-card ${isOwned?'owned':''}">
       <div class="re-icon">${re.icon}</div>
       <div class="re-name">${re.name}</div>
@@ -992,7 +995,10 @@ function renderRealEstate() {
       <div class="re-cost">${fmt(re.cost)}</div>
       <div class="re-desc">${re.desc}</div>
       ${isOwned?`<div class="re-count">所有数: ${count}棟</div>`:''}
-      <button class="btn-shop" onclick="buyRealEstate('${re.id}')">${isOwned?'追加購入':'購入する'}</button>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn-shop" style="margin-top:0" onclick="buyRealEstate('${re.id}')">${isOwned?'追加購入':'購入する'}</button>
+        ${isOwned?`<button class="btn-shop-sell" onclick="sellRealEstate('${re.id}')">売却 ${fmt(sellPrice)}</button>`:''}
+      </div>
     </div>`;
   });
   el.innerHTML = html;
@@ -1007,6 +1013,22 @@ window.buyRealEstate = async id => {
   d.realestate[id] = (d.realestate[id]||0) + 1;
   renderSidebar(); renderRealEstate();
   showNotif(`${re.name} を購入！毎ティック +${re.income.toLocaleString()}円`, 'ok');
+  try {
+    await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, realestate:d.realestate });
+  } catch(e) { showNotif('保存エラー', 'err'); }
+};
+
+window.sellRealEstate = async id => {
+  const re = REAL_ESTATES.find(r=>r.id===id);
+  const d = state.userData;
+  const count = d.realestate?.[id] || 0;
+  if (count <= 0) { showNotif('売却できる物件がありません', 'err'); return; }
+  const sellPrice = Math.round(re.cost * 0.7);
+  d.cash += sellPrice;
+  d.realestate[id] = count - 1;
+  if (d.realestate[id] === 0) delete d.realestate[id];
+  renderSidebar(); renderRealEstate();
+  showNotif(`${re.name} を売却！+${fmt(sellPrice)}（購入額の70%）`, 'ok');
   try {
     await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, realestate:d.realestate });
   } catch(e) { showNotif('保存エラー', 'err'); }
