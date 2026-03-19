@@ -251,6 +251,19 @@ body::after {
 .item-cost { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
 .item-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
 
+/* EVENT LOG */
+.event-log-list { display: flex; flex-direction: column; gap: 8px; }
+.event-log-item { background: var(--panel); border: 1px solid var(--border); border-radius: 3px; padding: 12px 16px; display: flex; align-items: flex-start; gap: 12px; border-left: 3px solid var(--border); }
+.event-log-item.bad  { border-left-color: var(--red); }
+.event-log-item.good { border-left-color: var(--green); }
+.event-log-item.ultra_bad { border-left-color: #ff00ff; background: rgba(255,0,255,.05); }
+.event-log-label { font-family: var(--font-mono); font-size: 12px; font-weight: 700; flex-shrink: 0; min-width: 160px; }
+.event-log-label.bad  { color: var(--red); }
+.event-log-label.good { color: var(--green); }
+.event-log-label.ultra_bad { color: #ff00ff; }
+.event-log-msg { font-size: 12px; color: var(--muted); flex: 1; line-height: 1.6; }
+.event-log-time { font-family: var(--font-mono); font-size: 10px; color: var(--muted); flex-shrink: 0; text-align: right; }
+
 /* NOTIF */
 .notif { position: fixed; top: 20px; right: 20px; z-index: 999; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 12px 18px; font-family: var(--font-mono); font-size: 13px; box-shadow: 0 4px 30px rgba(0,0,0,.4); transform: translateX(120%); transition: transform .3s; }
 .notif.show { transform: translateX(0); }
@@ -317,6 +330,7 @@ body::after {
       <div class="nav-item" data-page="history" onclick="navTo('history')"><span class="nav-icon">📋</span> 取引履歴</div>
       <div class="nav-item" data-page="ranking" onclick="navTo('ranking')"><span class="nav-icon">🏆</span> ランキング</div>
       <div class="nav-item" data-page="shop" onclick="navTo('shop')"><span class="nav-icon">🛍️</span> ショップ</div>
+      <div class="nav-item" data-page="events" onclick="navTo('events')"><span class="nav-icon">📰</span> イベント</div>
       <div class="nav-item" data-page="guide" onclick="navTo('guide')"><span class="nav-icon">📖</span> ガイド</div>
       <div class="nav-item" data-page="admin" onclick="navTo('admin')"><span class="nav-icon">🔐</span> 管理者</div>
     </nav>
@@ -423,6 +437,13 @@ body::after {
         <div class="items-grid" id="items-grid"></div>
       </div>
 
+    </div>
+
+    <!-- イベント履歴 -->
+    <div class="page" id="page-events">
+      <div class="page-title">イベント履歴</div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:16px">直近30件のマーケットイベント。再読み込みでリセットされます。</div>
+      <div id="event-log-content"><div style="color:var(--muted);font-size:13px;padding:20px 0">まだイベントは発生していません。</div></div>
     </div>
 
     <!-- 管理者 -->
@@ -709,62 +730,75 @@ function applyOfflineProgress(userData) {
 
 
 // ── ランダムイベント ──
+// w = 重み（大きいほど出やすい）
 const EVENTS = [
-  // 個別銘柄イベント（悪）
-  { id:'scandal',   type:'bad',    target:'single', mult:0.70, label:'💥 不祥事発覚！',      tmpl: t => `${t}で不正会計が発覚！株価急落！` },
-  { id:'recall',    type:'bad',    target:'single', mult:0.75, label:'⚠️ 製品リコール',       tmpl: t => `${t}が大規模リコールを発表。信頼失墜…` },
-  { id:'ceo_quit',  type:'bad',    target:'single', mult:0.80, label:'😱 CEO突然辞任',        tmpl: t => `${t}のCEOが突然辞任。経営混乱で株価下落。` },
-  { id:'hack',      type:'bad',    target:'single', mult:0.78, label:'🔓 サイバー攻撃',       tmpl: t => `${t}がサイバー攻撃を受けた！システム障害で株価急落。` },
-  { id:'lawsuit',   type:'bad',    target:'single', mult:0.82, label:'⚖️ 巨額訴訟',           tmpl: t => `${t}に巨額の損害賠償訴訟！株価が急落。` },
-  // 個別銘柄イベント（良）
-  { id:'earnings',  type:'good',   target:'single', mult:1.30, label:'📊 好決算発表！',       tmpl: t => `${t}が過去最高益を発表！株価爆上がり！` },
-  { id:'buyout',    type:'good',   target:'single', mult:1.40, label:'🤝 買収合意！',         tmpl: t => `${t}が大手に買収される見通し！プレミアムで株価急騰！` },
-  { id:'patent',    type:'good',   target:'single', mult:1.25, label:'💡 画期的特許取得',     tmpl: t => `${t}が革新的特許を取得！将来性に期待で急騰！` },
-  { id:'collab',    type:'good',   target:'single', mult:1.20, label:'🌟 大型提携発表',       tmpl: t => `${t}が世界的企業との提携を発表！株価上昇！` },
-  { id:'split',     type:'good',   target:'single', mult:1.35, label:'📈 株式分割発表',       tmpl: t => `${t}が株式分割を発表！個人投資家に人気で急騰！` },
-  // 市場全体イベント（悪）
-  { id:'crash',     type:'bad',    target:'all',    mult:0.85, label:'📉 市場暴落！',         tmpl: _ => `世界的な景気後退懸念で全銘柄が暴落！` },
-  { id:'rate_hike', type:'bad',    target:'all',    mult:0.88, label:'🏦 利上げショック',     tmpl: _ => `中央銀行が大幅利上げを発表。全市場が売られた。` },
-  { id:'war',       type:'bad',    target:'all',    mult:0.82, label:'💣 地政学リスク',       tmpl: _ => `地政学的緊張が高まり全市場が急落！` },
-  // 市場全体イベント（良）
-  { id:'boom',      type:'good',   target:'all',    mult:1.15, label:'🚀 市場バブル！',       tmpl: _ => `好景気で全銘柄が一斉に上昇！強気相場突入！` },
-  { id:'cut',       type:'good',   target:'all',    mult:1.12, label:'💸 利下げ発表！',       tmpl: _ => `中央銀行が利下げを発表！全市場がラリー！` },
-  { id:'recovery',  type:'good',   target:'all',    mult:1.10, label:'🌈 景気回復宣言',       tmpl: _ => `政府が景気回復を宣言。全銘柄に買いが集まった！` },
+  // 個別銘柄（悪） 合計重み ~65
+  { w:14, id:'scandal',   type:'bad',  target:'single', mult:0.70, label:'💥 不祥事発覚！',      tmpl: t => `${t}で不正会計が発覚！株価急落！` },
+  { w:13, id:'recall',    type:'bad',  target:'single', mult:0.75, label:'⚠️ 製品リコール',       tmpl: t => `${t}が大規模リコールを発表。信頼失墜…` },
+  { w:12, id:'ceo_quit',  type:'bad',  target:'single', mult:0.80, label:'😱 CEO突然辞任',        tmpl: t => `${t}のCEOが突然辞任。経営混乱で株価下落。` },
+  { w:13, id:'hack',      type:'bad',  target:'single', mult:0.78, label:'🔓 サイバー攻撃',       tmpl: t => `${t}がサイバー攻撃を受けた！システム障害で株価急落。` },
+  { w:13, id:'lawsuit',   type:'bad',  target:'single', mult:0.82, label:'⚖️ 巨額訴訟',           tmpl: t => `${t}に巨額の損害賠償訴訟！株価が急落。` },
+  // 個別銘柄（良） 合計重み ~65
+  { w:13, id:'earnings',  type:'good', target:'single', mult:1.30, label:'📊 好決算発表！',       tmpl: t => `${t}が過去最高益を発表！株価爆上がり！` },
+  { w:12, id:'buyout',    type:'good', target:'single', mult:1.40, label:'🤝 買収合意！',         tmpl: t => `${t}が大手に買収される見通し！プレミアムで株価急騰！` },
+  { w:13, id:'patent',    type:'good', target:'single', mult:1.25, label:'💡 画期的特許取得',     tmpl: t => `${t}が革新的特許を取得！将来性に期待で急騰！` },
+  { w:14, id:'collab',    type:'good', target:'single', mult:1.20, label:'🌟 大型提携発表',       tmpl: t => `${t}が世界的企業との提携を発表！株価上昇！` },
+  { w:13, id:'split',     type:'good', target:'single', mult:1.35, label:'📈 株式分割発表',       tmpl: t => `${t}が株式分割を発表！個人投資家に人気で急騰！` },
+  // 市場全体（悪） 合計重み ~35
+  { w:12, id:'crash',     type:'bad',  target:'all',    mult:0.85, label:'📉 市場暴落！',         tmpl: _ => `世界的な景気後退懸念で全銘柄が暴落！` },
+  { w:12, id:'rate_hike', type:'bad',  target:'all',    mult:0.88, label:'🏦 利上げショック',     tmpl: _ => `中央銀行が大幅利上げを発表。全市場が売られた。` },
+  { w:11, id:'war',       type:'bad',  target:'all',    mult:0.82, label:'💣 地政学リスク',       tmpl: _ => `地政学的緊張が高まり全市場が急落！` },
+  // 市場全体（良） 合計重み ~35
+  { w:12, id:'boom',      type:'good', target:'all',    mult:1.15, label:'🚀 市場バブル！',       tmpl: _ => `好景気で全銘柄が一斉に上昇！強気相場突入！` },
+  { w:12, id:'cut',       type:'good', target:'all',    mult:1.12, label:'💸 利下げ発表！',       tmpl: _ => `中央銀行が利下げを発表！全市場がラリー！` },
+  { w:11, id:'recovery',  type:'good', target:'all',    mult:1.10, label:'🌈 景気回復宣言',       tmpl: _ => `政府が景気回復を宣言。全銘柄に買いが集まった！` },
+  // ★超レア 壊滅イベント（悪） 合計重み ~3
+  { w: 1, id:'blackswan', type:'ultra_bad', target:'all',    mult:0.50, label:'🦢 ブラックスワン！',   tmpl: _ => `史上最悪の市場崩壊！全銘柄が50%暴落！！` },
+  { w: 1, id:'pandemic',  type:'ultra_bad', target:'all',    mult:0.55, label:'☣️ パンデミック勃発！', tmpl: _ => `世界的感染症で経済が完全停止！全銘柄45%暴落！！` },
+  { w: 1, id:'nuke_shock',type:'ultra_bad', target:'single', mult:0.50, label:'💀 企業消滅級スキャンダル！', tmpl: t => `${t}が経営破綻寸前！株価が50%以上暴落！！` },
 ];
 
 // イベント発生確率: 1ティック = 約1.5%（1分に1回くらい）
 const EVENT_PROB = 0.015;
+// イベントログ（最大30件）
+const eventLog = [];
 
 function maybeFireEvent() {
   if (Math.random() > EVENT_PROB) return;
-  const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+
+  // 重み付き抽選
+  const totalW = EVENTS.reduce((s, e) => s + e.w, 0);
+  let rnd = Math.random() * totalW;
+  let ev = EVENTS[EVENTS.length - 1];
+  for (const e of EVENTS) { rnd -= e.w; if (rnd <= 0) { ev = e; break; } }
+
   let targetTicker = null;
 
   if (ev.target === 'single') {
-    // ランダムに1銘柄選ぶ
     const s = STOCKS[Math.floor(Math.random() * STOCKS.length)];
     targetTicker = s.ticker;
     const cur = state.prices[targetTicker];
-    const next = Math.round(clamp(cur * ev.mult, s.base * 0.3, s.base * 3));
+    const next = Math.round(clamp(cur * ev.mult, s.base * 0.1, s.base * 3));
     state.prices[targetTicker] = next;
     const h = state.priceHistory[targetTicker];
-    h.push(next);
-    if (h.length > 30) h.shift();
+    h.push(next); if (h.length > 30) h.shift();
   } else {
-    // 全銘柄に影響
     STOCKS.forEach(s => {
       const cur = state.prices[s.ticker];
-      const next = Math.round(clamp(cur * ev.mult, s.base * 0.3, s.base * 3));
+      const next = Math.round(clamp(cur * ev.mult, s.base * 0.1, s.base * 3));
       state.prices[s.ticker] = next;
       const h = state.priceHistory[s.ticker];
-      h.push(next);
-      if (h.length > 30) h.shift();
+      h.push(next); if (h.length > 30) h.shift();
     });
   }
 
-  // 通知表示
   const msg = ev.tmpl(targetTicker || '');
+  const logEntry = { label: ev.label, msg, type: ev.type, time: Date.now(), ticker: targetTicker };
+  eventLog.unshift(logEntry);
+  if (eventLog.length > 30) eventLog.pop();
+
   showEventNotif(ev.label, msg, ev.type);
+  renderEventLog();
 }
 
 function showEventNotif(label, msg, type) {
@@ -791,6 +825,29 @@ function showEventNotif(label, msg, type) {
     el.style.transform = 'translateX(-50%) translateY(80px)';
     setTimeout(() => el.remove(), 400);
   }, 5000);
+}
+
+function renderEventLog() {
+  const el = document.getElementById('event-log-content');
+  if (!el) return;
+  if (eventLog.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0">まだイベントは発生していません。</div>';
+    return;
+  }
+  const fmt_time = ts => {
+    const d = new Date(ts);
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0') + ':' + d.getSeconds().toString().padStart(2,'0');
+  };
+  let html = '<div class="event-log-list">';
+  eventLog.forEach(e => {
+    html += `<div class="event-log-item ${e.type}">
+      <div class="event-log-label ${e.type}">${e.label}</div>
+      <div class="event-log-msg">${e.msg}</div>
+      <div class="event-log-time">${fmt_time(e.time)}</div>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 function tickPrices() {
@@ -1557,6 +1614,7 @@ window.navTo = page => {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.page===page));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
+  if (page==='events') renderEventLog();
   if (page==='holdings') renderHoldings();
   if (page==='history') renderHistory();
   if (page==='ranking') renderRanking();
