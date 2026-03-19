@@ -421,7 +421,7 @@ body::after {
 
       <!-- 不動産 -->
       <div class="shop-section" id="shop-realestate">
-        <div class="shop-desc">物件を購入すると毎ティック（5秒）ごとに家賃収入が自動で入ってくる！</div>
+        <div class="shop-desc">物件を購入すると毎分家賃収入が自動で入ってくる！</div>
         <div class="realestate-grid" id="realestate-grid"></div>
       </div>
 
@@ -714,11 +714,13 @@ function applyOfflineProgress(userData) {
   let cashDelta = 0;
   REAL_ESTATES.forEach(re => {
     const count = realestate[re.id] || 0;
-    if (count > 0) cashDelta += re.income * count * applyTicks;
+    const applyMins = Math.floor(applyTicks / 12);
+    if (count > 0) cashDelta += re.income * count * applyMins;
   });
   if (skills.dividend) {
     const totalShares = Object.values(userData.holdings || {}).reduce((s,q)=>s+q, 0);
-    cashDelta += totalShares * 10 * applyTicks;
+    const applyMins2 = Math.floor(applyTicks / 12);
+    cashDelta += totalShares * 10 * applyMins2;
   }
   if (cashDelta > 0) userData.cash += cashDelta;
 
@@ -856,16 +858,17 @@ function tickPrices() {
   const items = state.userData?.items || {};
   let cashDelta = 0;
 
-  // 家賃収入
-  REAL_ESTATES.forEach(re => {
-    const count = realestate[re.id] || 0;
-    if (count > 0) cashDelta += re.income * count;
-  });
-
-  // 配当収入スキル（保有株数 × 10円/ティック）
-  if (skills.dividend) {
-    const totalShares = Object.values(state.userData?.holdings||{}).reduce((s,q)=>s+q,0);
-    cashDelta += totalShares * 10;
+  // 家賃収入・配当は1分ごと（12ティック = 60秒）
+  if (!window._tickCount) window._tickCount = 0;
+  if (window._tickCount % 12 === 0) {
+    REAL_ESTATES.forEach(re => {
+      const count = realestate[re.id] || 0;
+      if (count > 0) cashDelta += re.income * count;
+    });
+    if (skills.dividend) {
+      const totalShares = Object.values(state.userData?.holdings||{}).reduce((s,q)=>s+q,0);
+      cashDelta += totalShares * 10;
+    }
   }
 
   STOCKS.forEach(s => {
@@ -891,7 +894,6 @@ function tickPrices() {
   }
 
   // 5ティックごとに株価・履歴・現金をまとめて保存
-  if (!window._tickCount) window._tickCount = 0;
   window._tickCount++;
   if (window._tickCount % 5 === 0 && state.user && state.userData) {
     const lp = {}, lh = {};
@@ -1072,7 +1074,7 @@ function renderRealEstate() {
     html += `<div class="re-card ${isOwned?'owned':''}">
       <div class="re-icon">${re.icon}</div>
       <div class="re-name">${re.name}</div>
-      <div class="re-income">毎ティック +${re.income.toLocaleString()}円${count>1?' × '+count+'棟 = +'+totalIncome.toLocaleString()+'円':''}</div>
+      <div class="re-income">毎分 +${re.income.toLocaleString()}円${count>1?' × '+count+'棟 = +'+totalIncome.toLocaleString()+'円':''}</div>
       <div class="re-cost">${fmt(re.cost)}</div>
       <div class="re-desc">${re.desc}</div>
       ${isOwned?`<div class="re-count">所有数: ${count}棟</div>`:''}
@@ -1093,7 +1095,7 @@ window.buyRealEstate = async id => {
   d.realestate = d.realestate || {};
   d.realestate[id] = (d.realestate[id]||0) + 1;
   renderSidebar(); renderRealEstate();
-  showNotif(`${re.name} を購入！毎ティック +${re.income.toLocaleString()}円`, 'ok');
+  showNotif(`${re.name} を購入！毎分 +${re.income.toLocaleString()}円`, 'ok');
   try {
     await updateDoc(doc(db,'users',state.user.uid), { cash:d.cash, realestate:d.realestate });
   } catch(e) { showNotif('保存エラー', 'err'); }
