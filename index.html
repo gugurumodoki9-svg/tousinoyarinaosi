@@ -1069,17 +1069,20 @@ function renderRealEstate() {
   REAL_ESTATES.forEach(re => {
     const count = owned[re.id] || 0;
     const isOwned = count > 0;
+    const isFull = count >= re.max;
     const totalIncome = re.income * count;
-    const sellPrice = Math.round(re.cost * 0.7); // 売却額は購入額の70%
+    const sellPrice = Math.round(re.cost * 0.7);
     html += `<div class="re-card ${isOwned?'owned':''}">
       <div class="re-icon">${re.icon}</div>
       <div class="re-name">${re.name}</div>
       <div class="re-income">毎分 +${re.income.toLocaleString()}円${count>1?' × '+count+'棟 = +'+totalIncome.toLocaleString()+'円':''}</div>
       <div class="re-cost">${fmt(re.cost)}</div>
       <div class="re-desc">${re.desc}</div>
-      ${isOwned?`<div class="re-count">所有数: ${count}棟</div>`:''}
-      <div style="display:flex;gap:8px;margin-top:12px">
-        <button class="btn-shop" style="margin-top:0" onclick="buyRealEstate('${re.id}')">${isOwned?'追加購入':'購入する'}</button>
+      <div style="font-size:11px;color:${isFull?'var(--red)':'var(--muted)'};margin-top:4px">
+        所有: ${count} / ${re.max}棟${isFull?' 上限に達しました':''}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn-shop" style="margin-top:0" onclick="buyRealEstate('${re.id}')" ${isFull?'disabled':''}>${isFull?'上限':isOwned?'追加購入':'購入する'}</button>
         ${isOwned?`<button class="btn-shop-sell" onclick="sellRealEstate('${re.id}')">売却 ${fmt(sellPrice)}</button>`:''}
       </div>
     </div>`;
@@ -1090,6 +1093,8 @@ function renderRealEstate() {
 window.buyRealEstate = async id => {
   const re = REAL_ESTATES.find(r=>r.id===id);
   const d = state.userData;
+  const curCount = (d.realestate||{})[id] || 0;
+  if (curCount >= re.max) { showNotif(`${re.name} は上限（${re.max}棟）に達しています`, 'err'); return; }
   if (d.cash < re.cost) { showNotif('現金が足りません！', 'err'); return; }
   d.cash -= re.cost;
   d.realestate = d.realestate || {};
@@ -1577,11 +1582,13 @@ document.getElementById('trade-modal').addEventListener('click', e=>{ if(e.targe
 
 // 不動産データ
 const REAL_ESTATES = [
-  { id:'apt',   icon:'🏠', name:'ワンルームアパート', cost:50000,   income:500,   desc:'小さいけど安定した家賃収入。初心者の第一歩。' },
-  { id:'house', icon:'🏡', name:'一戸建て住宅',       cost:150000,  income:2000,  desc:'ファミリー向け物件。安定した収益が見込める。' },
-  { id:'condo', icon:'🏢', name:'マンション1室',       cost:500000,  income:8000,  desc:'都市部の人気物件。家賃収入も大きくなる。' },
-  { id:'tower', icon:'🏙️', name:'タワーマンション',   cost:1500000, income:30000, desc:'超高級物件。毎ティック3万円の不労所得！' },
-  { id:'hotel', icon:'🏨', name:'ブティックホテル',   cost:3000000, income:80000, desc:'宿泊業で最大の収益。伝説プレイヤー向け。' },
+  { id:'apt',      icon:'🏠',  name:'ワンルームアパート',   cost:50000,       income:500,     max:10, desc:'小さいけど安定した家賃収入。初心者の第一歩。' },
+  { id:'house',    icon:'🏡',  name:'一戸建て住宅',         cost:150000,      income:2000,    max:7,  desc:'ファミリー向け物件。安定した収益が見込める。' },
+  { id:'condo',    icon:'🏢',  name:'マンション1室',         cost:500000,      income:8000,    max:5,  desc:'都市部の人気物件。家賃収入も大きくなる。' },
+  { id:'tower',    icon:'🏙️', name:'タワーマンション',      cost:1500000,     income:30000,   max:3,  desc:'超高級物件。毎分3万円の不労所得！' },
+  { id:'hotel',    icon:'🏨',  name:'ブティックホテル',      cost:3000000,     income:50000,   max:1,  desc:'宿泊業で大きな収益。上位プレイヤー向け。' },
+  { id:'mall',     icon:'🛍️', name:'ショッピングセンター',  cost:50000000,    income:200000,  max:1,  desc:'年間数十億規模の商業施設。資産1億以上向け。' },
+  { id:'stadium',  icon:'🏟️', name:'スタジアム',            cost:200000000,   income:2000000, max:1,  desc:'伝説の施設。毎分200万の収益。到達できる者は一握り。' },
 ];
 
 // スキルデータ
