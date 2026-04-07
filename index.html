@@ -251,6 +251,62 @@ body::after {
 .item-cost { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
 .item-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
 
+
+/* AUCTION */
+.auction-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.auction-tab { padding:9px 16px; background:var(--panel); border:1px solid var(--border); border-radius:3px; color:var(--muted); font-family:var(--font-jp); font-size:13px; cursor:pointer; transition:all .2s; }
+.auction-tab.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+.auction-tab:hover:not(.active) { border-color:var(--blue); color:var(--text); }
+.auction-section { display:none; }
+.auction-section.active { display:block; }
+.auction-loading { color:var(--muted); font-size:13px; padding:20px 0; }
+
+.auction-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+.auction-card { background:var(--panel); border:1px solid var(--border); border-radius:6px; overflow:hidden; cursor:pointer; transition:all .2s; }
+.auction-card:hover { border-color:var(--blue); transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,.3); }
+.auction-card.ended { opacity:.55; cursor:default; }
+.auction-card-img { width:100%; height:160px; object-fit:cover; background:var(--bg2); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:32px; }
+.auction-card-img img { width:100%; height:100%; object-fit:cover; }
+.auction-card-body { padding:14px; }
+.auction-card-title { font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--text); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.auction-card-desc { font-size:11px; color:var(--muted); margin-bottom:10px; line-height:1.6; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.auction-card-price { font-family:var(--font-mono); font-size:16px; font-weight:700; color:var(--gold); }
+.auction-card-meta { display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; color:var(--muted); }
+.auction-timer { color:var(--red); font-family:var(--font-mono); font-size:11px; font-weight:700; }
+.auction-timer.urgent { animation:pulse .8s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+.auction-form-card { background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:24px; max-width:500px; }
+.auction-field { margin-bottom:16px; }
+.auction-field label { display:block; font-size:11px; color:var(--muted); letter-spacing:1px; margin-bottom:6px; }
+.auction-field input, .auction-field textarea { width:100%; padding:10px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:3px; color:var(--text); font-family:var(--font-mono); font-size:14px; outline:none; transition:border-color .2s; resize:vertical; }
+.auction-field input:focus, .auction-field textarea:focus { border-color:var(--blue); }
+.auction-img-upload { border:2px dashed var(--border); border-radius:4px; padding:20px; text-align:center; cursor:pointer; transition:all .2s; min-height:120px; display:flex; align-items:center; justify-content:center; }
+.auction-img-upload:hover { border-color:var(--blue); }
+.auction-img-placeholder { color:var(--muted); font-size:13px; }
+.auction-img-preview { max-width:100%; max-height:200px; border-radius:3px; }
+.auction-btn-primary { width:100%; padding:13px; background:var(--blue); border:none; border-radius:3px; color:#fff; font-family:var(--font-mono); font-size:13px; font-weight:700; letter-spacing:1px; cursor:pointer; transition:all .2s; }
+.auction-btn-primary:hover { background:#5a9bff; box-shadow:0 0 20px rgba(68,138,255,.4); }
+.auction-btn-primary:disabled { opacity:.4; cursor:not-allowed; }
+
+/* 入札モーダル */
+.auction-modal-img { width:100%; max-height:240px; object-fit:cover; border-radius:4px; margin-bottom:16px; background:var(--bg2); }
+.auction-modal-title { font-family:var(--font-mono); font-size:20px; font-weight:700; color:var(--gold); margin-bottom:6px; }
+.auction-modal-desc { font-size:13px; color:var(--muted); margin-bottom:16px; line-height:1.7; }
+.auction-bid-row { display:flex; gap:10px; align-items:center; margin-bottom:10px; }
+.auction-bid-input { flex:1; padding:10px; background:var(--bg2); border:1px solid var(--border); color:var(--text); font-family:var(--font-mono); font-size:16px; border-radius:3px; outline:none; }
+.auction-bid-input:focus { border-color:var(--gold); }
+.auction-bid-btn { padding:10px 20px; background:var(--gold); border:none; border-radius:3px; color:#000; font-family:var(--font-mono); font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; }
+.auction-bid-btn:hover { background:#ffe066; }
+.auction-bid-history { margin-top:14px; max-height:160px; overflow-y:auto; }
+.auction-bid-item { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(42,42,58,.5); font-size:12px; }
+.auction-seller-badge { font-size:10px; color:var(--blue); background:rgba(68,138,255,.1); padding:2px 8px; border-radius:2px; margin-left:8px; }
+.auction-mine-card { background:var(--panel); border:1px solid var(--border); border-radius:4px; padding:16px; margin-bottom:12px; display:flex; gap:14px; align-items:flex-start; }
+.auction-mine-img { width:80px; height:80px; object-fit:cover; border-radius:3px; background:var(--bg2); flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:20px; }
+.auction-mine-img img { width:100%; height:100%; object-fit:cover; border-radius:3px; }
+.auction-cancel-btn { padding:6px 12px; background:transparent; border:1px solid var(--red); border-radius:3px; color:var(--red); font-size:11px; cursor:pointer; transition:all .2s; }
+.auction-cancel-btn:hover { background:rgba(255,23,68,.15); }
+
 /* EVENT LOG */
 .event-log-list { display: flex; flex-direction: column; gap: 8px; }
 .event-log-item { background: var(--panel); border: 1px solid var(--border); border-radius: 3px; padding: 12px 16px; display: flex; align-items: flex-start; gap: 12px; border-left: 3px solid var(--border); }
@@ -330,6 +386,7 @@ body::after {
       <div class="nav-item" data-page="history" onclick="navTo('history')"><span class="nav-icon">📋</span> 取引履歴</div>
       <div class="nav-item" data-page="ranking" onclick="navTo('ranking')"><span class="nav-icon">🏆</span> ランキング</div>
       <div class="nav-item" data-page="shop" onclick="navTo('shop')"><span class="nav-icon">🛍️</span> ショップ</div>
+      <div class="nav-item" data-page="auction" onclick="navTo('auction')"><span class="nav-icon">🔨</span> オークション</div>
       <div class="nav-item" data-page="events" onclick="navTo('events')"><span class="nav-icon">📰</span> イベント</div>
       <div class="nav-item" data-page="guide" onclick="navTo('guide')"><span class="nav-icon">📖</span> ガイド</div>
       <div class="nav-item" data-page="admin" onclick="navTo('admin')"><span class="nav-icon">🔐</span> 管理者</div>
@@ -396,23 +453,23 @@ body::after {
           <div class="gacha-card">
             <div class="gacha-icon">🥉</div>
             <div class="gacha-name">ノーマルガチャ</div>
-            <div class="gacha-cost">¥400,000</div>
-            <div class="gacha-desc">ハズレ50%。最大+20%。初期資金の4割が吹き飛ぶかも。</div>
+            <div class="gacha-cost">¥50,000</div>
+            <div class="gacha-desc">ハズレ75%。最大+25%（0.2%）。30秒に1回のみ。</div>
             <button class="btn-shop" onclick="doGacha('normal')">引く</button>
           </div>
           <div class="gacha-card featured">
             <div class="gacha-badge">おすすめ</div>
             <div class="gacha-icon">🥈</div>
             <div class="gacha-name">レアガチャ</div>
-            <div class="gacha-cost">¥1,500,000</div>
-            <div class="gacha-desc">ハズレ45%。最大+80%（確率0.9%）。資産150万以上推奨。</div>
+            <div class="gacha-cost">¥200,000</div>
+            <div class="gacha-desc">ハズレ80%。最大+80%（0.3%）。30秒に1回のみ。</div>
             <button class="btn-shop" onclick="doGacha('rare')">引く</button>
           </div>
           <div class="gacha-card">
             <div class="gacha-icon">🥇</div>
             <div class="gacha-name">伝説ガチャ</div>
-            <div class="gacha-cost">¥5,000,000</div>
-            <div class="gacha-desc">ハズレ40%。最大2.5倍（確率0.4%）。資産500万以上向け。</div>
+            <div class="gacha-cost">¥1,000,000</div>
+            <div class="gacha-desc">ハズレ85%。最大2.5倍（0.1%）。30秒に1回のみ。</div>
             <button class="btn-shop" onclick="doGacha('legend')">引く</button>
           </div>
         </div>
@@ -437,6 +494,67 @@ body::after {
         <div class="items-grid" id="items-grid"></div>
       </div>
 
+    </div>
+
+
+    <!-- オークション -->
+    <div class="page" id="page-auction">
+      <div class="page-title">オークション</div>
+
+      <!-- タブ -->
+      <div class="auction-tabs">
+        <button class="auction-tab active" onclick="switchAuctionTab('list')">🔨 出品一覧</button>
+        <button class="auction-tab" onclick="switchAuctionTab('sell')">➕ 出品する</button>
+        <button class="auction-tab" onclick="switchAuctionTab('mine')">📦 自分の出品</button>
+      </div>
+
+      <!-- 出品一覧 -->
+      <div class="auction-section active" id="auction-list">
+        <div id="auction-list-content"><div class="auction-loading">読み込み中...</div></div>
+      </div>
+
+      <!-- 出品フォーム -->
+      <div class="auction-section" id="auction-sell">
+        <div class="auction-form-card">
+          <div style="font-family:var(--font-mono);font-size:12px;color:var(--gold);margin-bottom:16px;letter-spacing:1px">NEW LISTING</div>
+          <div class="auction-field">
+            <label>タイトル</label>
+            <input type="text" id="auction-title" placeholder="出品タイトルを入力..." maxlength="40">
+          </div>
+          <div class="auction-field">
+            <label>説明</label>
+            <textarea id="auction-desc" placeholder="商品の説明を入力..." rows="3" maxlength="200"></textarea>
+          </div>
+          <div class="auction-field">
+            <label>画像（任意・圧縮して保存）</label>
+            <div class="auction-img-upload" id="auction-img-drop" onclick="document.getElementById('auction-img-input').click()">
+              <div id="auction-img-preview-wrap">
+                <div class="auction-img-placeholder">📷 クリックして画像を選択</div>
+              </div>
+            </div>
+            <input type="file" id="auction-img-input" accept="image/*" style="display:none" onchange="handleAuctionImage(this)">
+          </div>
+          <div class="auction-field">
+            <label>開始価格</label>
+            <input type="number" id="auction-start-price" placeholder="例: 100000" min="1">
+          </div>
+          <button class="auction-btn-primary" onclick="submitAuction()">出品する（1時間後に自動終了）</button>
+          <div id="auction-form-msg" style="font-size:12px;margin-top:10px;min-height:16px"></div>
+        </div>
+      </div>
+
+      <!-- 自分の出品 -->
+      <div class="auction-section" id="auction-mine">
+        <div id="auction-mine-content"><div class="auction-loading">読み込み中...</div></div>
+      </div>
+    </div>
+
+    <!-- オークション入札モーダル -->
+    <div class="modal-overlay" id="auction-modal">
+      <div class="modal" style="width:460px;max-width:95vw">
+        <button class="modal-close" onclick="closeAuctionModal()">✕</button>
+        <div id="auction-modal-content"></div>
+      </div>
     </div>
 
     <!-- イベント履歴 -->
@@ -613,7 +731,7 @@ body::after {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, onSnapshot, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyAal3KAzh4IWnvP_UUNHFJGVV2mTLqj3hE",
@@ -626,17 +744,19 @@ const app = initializeApp({
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const INITIAL_CASH = 1_000_000;
+const INITIAL_CASH = 100_000;
+const PRICE_RESET_VER = 2;
+const CASH_RESET_VER = 1; // この値を上げると全員のcashがINITIAL_CASHにリセット // この値を上げると全ユーザーの株価がリセットされる
 const PRICE_TICK = 5000;
 const STOCKS = [
-  { ticker: 'TECH', name: 'テクノロジー株式会社', sector: 'テック', base: 45000 },
-  { ticker: 'BANK', name: '大和銀行ホールディングス', sector: '金融', base: 3200 },
-  { ticker: 'AUTO', name: 'ジャパン自動車', sector: '自動車', base: 8500 },
-  { ticker: 'PHRM', name: '健康製薬グループ', sector: '製薬', base: 12000 },
-  { ticker: 'ENRG', name: '東洋エネルギー', sector: 'エネルギー', base: 6700 },
-  { ticker: 'FOOD', name: '日本食品コーポ', sector: '食品', base: 2800 },
-  { ticker: 'GAME', name: 'メガゲームス株式会社', sector: 'ゲーム', base: 21000 },
-  { ticker: 'SHIP', name: '太平洋海運', sector: '物流', base: 4100 },
+  { ticker: 'TECH', name: 'テクノロジー株式会社', sector: 'テック', base: 22500 },
+  { ticker: 'BANK', name: '大和銀行ホールディングス', sector: '金融', base: 1600 },
+  { ticker: 'AUTO', name: 'ジャパン自動車', sector: '自動車', base: 4250 },
+  { ticker: 'PHRM', name: '健康製薬グループ', sector: '製薬', base: 6000 },
+  { ticker: 'ENRG', name: '東洋エネルギー', sector: 'エネルギー', base: 3350 },
+  { ticker: 'FOOD', name: '日本食品コーポ', sector: '食品', base: 1400 },
+  { ticker: 'GAME', name: 'メガゲームス株式会社', sector: 'ゲーム', base: 10500 },
+  { ticker: 'SHIP', name: '太平洋海運', sector: '物流', base: 2050 },
 ];
 let state = { user: null, userData: null, prices: {}, priceHistory: {}, tradeMode: 'BUY' };
 const fmt = n => {
@@ -973,6 +1093,25 @@ onAuthStateChanged(auth, async user => {
     };
     if (!snap.exists()) await setDoc(doc(db,'users',user.uid), { ...state.userData, createdAt: serverTimestamp() });
 
+    // 所持金リセットバージョンチェック
+    if ((state.userData.cashResetVer || 0) < CASH_RESET_VER) {
+      state.userData.cash = INITIAL_CASH;
+      state.userData.cashResetVer = CASH_RESET_VER;
+      await updateDoc(doc(db,'users',user.uid), {
+        cash: INITIAL_CASH, cashResetVer: CASH_RESET_VER
+      }).catch(()=>{});
+    }
+
+    // 株価リセットバージョンチェック（古いlastPricesを無効化）
+    if ((state.userData.priceResetVer || 0) < PRICE_RESET_VER) {
+      state.userData.lastPrices = {};
+      state.userData.lastHistory = {};
+      state.userData.priceResetVer = PRICE_RESET_VER;
+      await updateDoc(doc(db,'users',user.uid), {
+        lastPrices: {}, lastHistory: {}, priceResetVer: PRICE_RESET_VER
+      }).catch(()=>{});
+    }
+
     // オフライン中の経過を計算
     applyOfflineProgress(state.userData);
     // 計算後の株価・現金でFirestoreを更新
@@ -1007,37 +1146,49 @@ onAuthStateChanged(auth, async user => {
 
 // ── ガチャ ──
 const GACHA_TABLES = {
-  // ノーマル: 初期資金の半分近くかかる。基本損する。
+  // ノーマル: ハズレ75%。初期資金の半分が消える。
   normal: [
-    { w:50, icon:'💸', title:'ハズレ…',       desc:'何も起きなかった。ギャンブルはほどほどに。',  fn: d => {} },
-    { w:28, icon:'🪙', title:'少しだけ回収',   desc:'+¥30,000 ゲット',                           fn: d => { d.cash+=30000; } },
-    { w:14, icon:'💰', title:'プチボーナス！', desc:'+¥80,000 ゲット',                            fn: d => { d.cash+=80000; } },
-    { w: 6, icon:'📈', title:'当たり！',       desc:'現金+10%！',                                 fn: d => { d.cash=Math.round(d.cash*1.1); } },
-    { w: 2, icon:'🌟', title:'大当たり！',     desc:'現金+20%！ すごい！',                        fn: d => { d.cash=Math.round(d.cash*1.2); } },
+    { w:750, icon:'💸', title:'ハズレ…',       desc:'何も起きなかった。ご愁傷様。',               fn: d => {} },
+    { w:160, icon:'🪙', title:'少しだけ回収',   desc:'+¥10,000 ゲット（焼け石に水）',             fn: d => { d.cash+=10000; } },
+    { w: 60, icon:'💰', title:'プチボーナス！', desc:'+¥30,000 ゲット',                           fn: d => { d.cash+=30000; } },
+    { w: 20, icon:'📈', title:'当たり！',       desc:'現金+8%！（2%の奇跡）',                     fn: d => { d.cash=Math.round(d.cash*1.08); } },
+    { w:  8, icon:'🌟', title:'大当たり！',     desc:'現金+15%！（0.8%の奇跡）',                  fn: d => { d.cash=Math.round(d.cash*1.15); } },
+    { w:  2, icon:'💎', title:'超大当たり！',   desc:'現金+25%！（0.2%の奇跡）',                  fn: d => { d.cash=Math.round(d.cash*1.25); } },
   ],
-  // レア: 資産の1/3〜1/4くらいかかる想定。たまにトントン。
+  // レア: ハズレ80%。資産の大半が飛ぶ。
   rare: [
-    { w:45, icon:'💸', title:'ハズレ…',       desc:'今回は残念。次に期待しよう。',                fn: d => {} },
-    { w:28, icon:'💰', title:'少し回収！',     desc:'+¥200,000 ゲット',                           fn: d => { d.cash+=200000; } },
-    { w:17, icon:'📈', title:'現金+15%！',     desc:'まずまずの結果！',                            fn: d => { d.cash=Math.round(d.cash*1.15); } },
-    { w: 7, icon:'🎊', title:'当たり！',       desc:'現金+30%！ 運がいい！',                      fn: d => { d.cash=Math.round(d.cash*1.3); } },
-    { w: 2, icon:'🌟', title:'大当たり！',     desc:'現金+50%！ 信じられない！',                  fn: d => { d.cash=Math.round(d.cash*1.5); } },
-    { w: 1, icon:'💎', title:'超レア！',       desc:'現金+80%！ 0.9%の奇跡！',                   fn: d => { d.cash=Math.round(d.cash*1.8); } },
+    { w:800, icon:'💸', title:'ハズレ…',       desc:'また溶けた。もう引かない方がいい。',          fn: d => {} },
+    { w:120, icon:'💰', title:'少し回収！',     desc:'+¥80,000 ゲット（全然足りない）',            fn: d => { d.cash+=80000; } },
+    { w: 50, icon:'📈', title:'現金+10%！',     desc:'まずまず（5%の確率）',                       fn: d => { d.cash=Math.round(d.cash*1.1); } },
+    { w: 20, icon:'🎊', title:'当たり！',       desc:'現金+25%！（2%の確率）',                    fn: d => { d.cash=Math.round(d.cash*1.25); } },
+    { w:  7, icon:'🌟', title:'大当たり！',     desc:'現金+50%！（0.7%の確率）',                  fn: d => { d.cash=Math.round(d.cash*1.5); } },
+    { w:  3, icon:'💎', title:'超レア！',       desc:'現金+80%！（0.3%の奇跡）',                  fn: d => { d.cash=Math.round(d.cash*1.8); } },
   ],
-  // 伝説: 資産が相当ないと手が出ない。ほぼ損する。
+  // 伝説: ハズレ85%。人生を賭けるな。
   legend: [
-    { w:40, icon:'💸', title:'ハズレ…',           desc:'大金が消えた…つらい。',                  fn: d => {} },
-    { w:28, icon:'💰', title:'少し戻った',         desc:'+¥500,000 ゲット',                       fn: d => { d.cash+=500000; } },
-    { w:18, icon:'📈', title:'現金+20%！',         desc:'まあまあの結果！',                        fn: d => { d.cash=Math.round(d.cash*1.2); } },
-    { w: 9, icon:'🎊', title:'当たり！',           desc:'現金+40%！',                             fn: d => { d.cash=Math.round(d.cash*1.4); } },
-    { w: 3, icon:'🌟', title:'大当たり！',         desc:'現金+70%！ さすが伝説！',                fn: d => { d.cash=Math.round(d.cash*1.7); } },
-    { w: 1, icon:'👑', title:'ジャックポット！',   desc:'現金2倍！！ 0.9%の奇跡！',              fn: d => { d.cash=Math.round(d.cash*2); } },
-    { w: 1, icon:'🚀', title:'超ジャックポット！', desc:'現金2.5倍！！！ 0.4%の奇跡！',          fn: d => { d.cash=Math.round(d.cash*2.5); } },
+    { w:850, icon:'💸', title:'ハズレ…',           desc:'全部消えた。後悔してる？',               fn: d => {} },
+    { w: 90, icon:'💰', title:'少し戻った',         desc:'+¥200,000 ゲット（全然足りない）',       fn: d => { d.cash+=200000; } },
+    { w: 35, icon:'📈', title:'現金+15%！',         desc:'まあまあ（3.5%の確率）',                 fn: d => { d.cash=Math.round(d.cash*1.15); } },
+    { w: 15, icon:'🎊', title:'当たり！',           desc:'現金+35%！（1.5%の確率）',               fn: d => { d.cash=Math.round(d.cash*1.35); } },
+    { w:  7, icon:'🌟', title:'大当たり！',         desc:'現金+70%！（0.7%の確率）',               fn: d => { d.cash=Math.round(d.cash*1.7); } },
+    { w:  2, icon:'👑', title:'ジャックポット！',   desc:'現金2倍！！（0.2%の奇跡）',             fn: d => { d.cash=Math.round(d.cash*2); } },
+    { w:  1, icon:'🚀', title:'超ジャックポット！', desc:'現金2.5倍！！（0.1%の奇跡）',           fn: d => { d.cash=Math.round(d.cash*2.5); } },
   ],
 };
-const GACHA_COST = { normal:400000, rare:1500000, legend:5000000 };
+const GACHA_COST = { normal:50000, rare:200000, legend:1000000 };
+// ガチャクールダウン（連打・オートクリック対策）: 30秒に1回のみ
+const GACHA_COOLDOWN = 30000;
+let _lastGachaTime = { normal: 0, rare: 0, legend: 0 };
 
 window.doGacha = async type => {
+  // クールダウンチェック（30秒に1回）
+  const now = Date.now();
+  const remaining = GACHA_COOLDOWN - (now - (_lastGachaTime[type] || 0));
+  if (remaining > 0) {
+    showNotif('クールダウン中… あと' + Math.ceil(remaining/1000) + '秒', 'err');
+    return;
+  }
+  _lastGachaTime[type] = now;
   const d = state.userData;
   const cost = GACHA_COST[type];
   if (d.cash < cost) { showNotif('現金が足りません！', 'err'); return; }
@@ -1083,7 +1234,7 @@ function renderRealEstate() {
       </div>
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn-shop" style="margin-top:0" onclick="buyRealEstate('${re.id}')" ${isFull?'disabled':''}>${isFull?'上限':isOwned?'追加購入':'購入する'}</button>
-        ${isOwned?`<button class="btn-shop-sell" onclick="sellRealEstate('${re.id}')">売却 ${fmt(sellPrice)}</button>`:''}
+        ${isOwned ? '<button class="btn-shop-sell" onclick="sellRealEstate(\''+re.id+'\')">売却 '+fmt(sellPrice)+'</button>' : ''}
       </div>
     </div>`;
   });
@@ -1182,7 +1333,7 @@ function renderItems() {
       <div class="item-effect">${it.effect}</div>
       <div class="item-cost">${fmt(it.cost)}</div>
       <div class="item-desc">${it.desc}</div>
-      ${owned>0&&it.consumable?`<div style="font-size:11px;color:var(--blue);margin-top:4px">所持数: ${owned}個</div>`:''}
+      ${owned>0&&it.consumable ? '<div style="font-size:11px;color:var(--blue);margin-top:4px">所持数: '+owned+'個</div>' : ''}
       <button class="btn-shop ${isPermOwned?'owned':''}" onclick="buyItem('${it.id}')" ${isPermOwned?'disabled':''}>
         ${isPermOwned?'✓ 所持中':'購入する'}
       </button>
@@ -1529,6 +1680,388 @@ async function renderRanking() {
   } catch(e) { el.innerHTML='<div style="color:var(--red)">エラー: '+e.message+'</div>'; }
 }
 
+
+// ════════════════════════════════
+//  AUCTION
+// ════════════════════════════════
+
+let _auctionUnsub = null; // リアルタイムリスナー
+let _auctionTimers = {};  // タイマーID管理
+
+// タブ切り替え
+window.switchAuctionTab = tab => {
+  document.querySelectorAll('.auction-tab').forEach((t,i) =>
+    t.classList.toggle('active', ['list','sell','mine'][i] === tab));
+  document.querySelectorAll('.auction-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('auction-' + tab).classList.add('active');
+  if (tab === 'list') startAuctionListener();
+  if (tab === 'mine') renderMyAuctions();
+};
+
+// navToからオークションを開くとき
+function initAuctionPage() {
+  switchAuctionTab('list');
+}
+
+// 画像処理（リサイズ・Base64変換）
+window.handleAuctionImage = input => {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showNotif('画像は5MB以下にしてください', 'err'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      // 最大400x400にリサイズ
+      const MAX = 400;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+      else { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      // JPEG圧縮（quality=0.7）
+      const base64 = canvas.toDataURL('image/jpeg', 0.7);
+      window._auctionImgBase64 = base64;
+      const wrap = document.getElementById('auction-img-preview-wrap');
+      wrap.innerHTML = `<img src="${base64}" class="auction-img-preview">`;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+// 出品送信
+window.submitAuction = async () => {
+  const title = document.getElementById('auction-title').value.trim();
+  const desc = document.getElementById('auction-desc').value.trim();
+  const startPrice = parseInt(document.getElementById('auction-start-price').value);
+  const msg = document.getElementById('auction-form-msg');
+
+  if (!title) { msg.style.color='var(--red)'; msg.textContent='タイトルを入力してください'; return; }
+  if (!startPrice || startPrice < 1) { msg.style.color='var(--red)'; msg.textContent='開始価格を入力してください'; return; }
+
+  const btn = document.querySelector('#auction-sell .auction-btn-primary');
+  btn.disabled = true; btn.textContent = '出品中...';
+
+  const endAt = Date.now() + 60 * 60 * 1000; // 1時間後
+  const data = {
+    title, desc,
+    image: window._auctionImgBase64 || null,
+    startPrice,
+    currentPrice: startPrice,
+    currentBidder: null,
+    currentBidderName: null,
+    sellerUid: state.user.uid,
+    sellerName: state.userData.name,
+    createdAt: Date.now(),
+    endAt,
+    ended: false,
+    bids: [],
+  };
+
+  try {
+    await addDoc(collection(db, 'auctions'), data);
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✓ 出品しました！1時間後に自動終了します';
+    document.getElementById('auction-title').value = '';
+    document.getElementById('auction-desc').value = '';
+    document.getElementById('auction-start-price').value = '';
+    document.getElementById('auction-img-preview-wrap').innerHTML = '<div class="auction-img-placeholder">📷 クリックして画像を選択</div>';
+    window._auctionImgBase64 = null;
+    showNotif('🔨 出品しました！', 'ok');
+  } catch(e) {
+    msg.style.color = 'var(--red)'; msg.textContent = 'エラー: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = '出品する（1時間後に自動終了）';
+};
+
+// リアルタイムリスナー起動
+function startAuctionListener() {
+  if (_auctionUnsub) _auctionUnsub(); // 既存リスナーを解除
+  const el = document.getElementById('auction-list-content');
+  el.innerHTML = '<div class="auction-loading">読み込み中...</div>';
+
+  const q = query(collection(db, 'auctions'), orderBy('createdAt', 'desc'), limit(30));
+  _auctionUnsub = onSnapshot(q, snap => {
+    const auctions = [];
+    snap.forEach(d => auctions.push({ id: d.id, ...d.data() }));
+    renderAuctionList(auctions);
+    // 終了チェック
+    auctions.forEach(a => { if (!a.ended) checkAuctionEnd(a); });
+  }, err => {
+    el.innerHTML = '<div style="color:var(--red)">エラー: ' + err.message + '</div>';
+  });
+}
+
+// タイマー表示用ヘルパー
+function formatRemaining(endAt) {
+  const rem = endAt - Date.now();
+  if (rem <= 0) return '終了';
+  const h = Math.floor(rem / 3600000);
+  const m = Math.floor((rem % 3600000) / 60000);
+  const s = Math.floor((rem % 60000) / 1000);
+  if (h > 0) return h + 'h ' + m + 'm';
+  if (m > 0) return m + 'm ' + s + 's';
+  return s + 's';
+}
+
+// 一覧レンダリング
+function renderAuctionList(auctions) {
+  const el = document.getElementById('auction-list-content');
+  // タイマーをリセット
+  Object.values(_auctionTimers).forEach(clearInterval);
+  _auctionTimers = {};
+
+  if (!auctions.length) {
+    el.innerHTML = '<div class="auction-loading">出品中の商品はありません。最初に出品してみよう！</div>';
+    return;
+  }
+
+  let html = '<div class="auction-grid">';
+  auctions.forEach(a => {
+    const ended = a.ended || Date.now() > a.endAt;
+    const imgHtml = a.image
+      ? `<div class="auction-card-img"><img src="${a.image}" alt="${a.title}"></div>`
+      : `<div class="auction-card-img">📦</div>`;
+    html += `
+      <div class="auction-card ${ended?'ended':''}" onclick="${ended?'':'openAuctionModal(''+a.id+'')'}">
+        ${imgHtml}
+        <div class="auction-card-body">
+          <div class="auction-card-title">${a.title}</div>
+          <div class="auction-card-desc">${a.desc || '説明なし'}</div>
+          <div class="auction-card-price">${fmt(a.currentPrice)}</div>
+          <div class="auction-card-meta">
+            <span>${a.currentBidderName ? '最高入札: ' + a.currentBidderName.substring(0,8) : '入札なし'}</span>
+            ${ended
+              ? '<span style="color:var(--muted)">終了</span>'
+              : '<span class="auction-timer' + ((a.endAt - Date.now()) < 300000 ? ' urgent' : '') + '" id="timer-' + a.id + '">' + formatRemaining(a.endAt) + '</span>'
+            }
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">出品: ${a.sellerName?.substring(0,10) || '---'}</div>
+        </div>
+      </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+
+  // タイマー更新
+  auctions.filter(a => !a.ended && Date.now() <= a.endAt).forEach(a => {
+    _auctionTimers[a.id] = setInterval(() => {
+      const el = document.getElementById('timer-' + a.id);
+      if (!el) { clearInterval(_auctionTimers[a.id]); return; }
+      const rem = a.endAt - Date.now();
+      if (rem <= 0) { el.textContent = '終了'; clearInterval(_auctionTimers[a.id]); return; }
+      el.textContent = formatRemaining(a.endAt);
+      el.className = 'auction-timer' + (rem < 300000 ? ' urgent' : '');
+    }, 1000);
+  });
+}
+
+// 入札モーダルを開く
+let _currentAuctionId = null;
+let _auctionModalUnsub = null;
+
+window.openAuctionModal = async id => {
+  _currentAuctionId = id;
+  document.getElementById('auction-modal').classList.add('open');
+
+  // リアルタイムリスナー
+  if (_auctionModalUnsub) _auctionModalUnsub();
+  _auctionModalUnsub = onSnapshot(doc(db, 'auctions', id), snap => {
+    if (!snap.exists()) return;
+    renderAuctionModal({ id: snap.id, ...snap.data() });
+  });
+};
+
+window.closeAuctionModal = () => {
+  document.getElementById('auction-modal').classList.remove('open');
+  if (_auctionModalUnsub) { _auctionModalUnsub(); _auctionModalUnsub = null; }
+  _currentAuctionId = null;
+};
+
+function renderAuctionModal(a) {
+  const ended = a.ended || Date.now() > a.endAt;
+  const isMyItem = a.sellerUid === state.user.uid;
+  const isWinning = a.currentBidder === state.user.uid;
+  const bids = a.bids || [];
+  const imgHtml = a.image
+    ? `<img src="${a.image}" class="auction-modal-img" alt="${a.title}">`
+    : '';
+
+  let bidSection = '';
+  if (!ended) {
+    const minBid = a.currentPrice + 1;
+    bidSection = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:14px;margin-bottom:14px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">現在価格: <span style="color:var(--gold);font-size:16px;font-weight:700">${fmt(a.currentPrice)}</span>
+          ${isWinning ? ' <span style="color:var(--green);font-size:11px">★ あなたが最高入札中</span>' : ''}
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">残り時間: <span class="auction-timer" id="modal-timer">${formatRemaining(a.endAt)}</span></div>
+        ${isMyItem ? '<div style="color:var(--muted);font-size:12px">自分の出品には入札できません</div>' :
+          '<div class="auction-bid-row">' +
+          '<input type="number" class="auction-bid-input" id="auction-bid-amount" placeholder="' + minBid.toLocaleString() + '以上" min="' + minBid + '">' +
+          '<button class="auction-bid-btn" onclick="placeBid(\'' + a.id + '\')">入札</button>' +
+          '</div><div id="auction-bid-msg" style="font-size:11px;min-height:16px"></div>'
+        }
+      </div>`;
+  } else {
+    const winner = a.currentBidder ? `落札者: ${a.currentBidderName || '???'} (${fmt(a.currentPrice)})` : '入札なし（流札）';
+    bidSection = `<div style="background:rgba(255,215,64,.08);border:1px solid var(--gold);border-radius:4px;padding:12px;margin-bottom:14px;font-family:var(--font-mono);font-size:13px;color:var(--gold)">🔨 終了 — ${winner}</div>`;
+  }
+
+  const bidHistory = bids.slice(-10).reverse().map(b =>
+    `<div class="auction-bid-item">
+      <span style="color:${b.uid===state.user.uid?'var(--green)':'var(--text)'}">${b.name?.substring(0,10) || '???'}</span>
+      <span style="color:var(--gold);font-family:var(--font-mono)">${fmt(b.amount)}</span>
+    </div>`).join('');
+
+  document.getElementById('auction-modal-content').innerHTML = `
+    ${imgHtml}
+    <div class="auction-modal-title">${a.title}<span class="auction-seller-badge">by ${a.sellerName?.substring(0,10) || '???'}</span></div>
+    <div class="auction-modal-desc">${a.desc || '説明なし'}</div>
+    ${bidSection}
+    ${bids.length ? '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">入札履歴 ('+bids.length+'件)</div><div class="auction-bid-history">'+bidHistory+'</div>' : ''}
+  `;
+
+  // タイマー更新
+  if (!ended) {
+    const updateTimer = () => {
+      const el = document.getElementById('modal-timer');
+      if (el) { el.textContent = formatRemaining(a.endAt); el.className = 'auction-timer' + ((a.endAt - Date.now()) < 300000 ? ' urgent' : ''); }
+    };
+    if (window._modalTimerInterval) clearInterval(window._modalTimerInterval);
+    window._modalTimerInterval = setInterval(updateTimer, 1000);
+  }
+}
+
+// 入札処理
+window.placeBid = async (auctionId) => {
+  const amount = parseInt(document.getElementById('auction-bid-amount').value);
+  const msgEl = document.getElementById('auction-bid-msg');
+  if (!amount || amount < 1) { msgEl.style.color='var(--red)'; msgEl.textContent='金額を入力してください'; return; }
+
+  // 最新データを取得してチェック
+  const snap = await getDoc(doc(db, 'auctions', auctionId));
+  if (!snap.exists()) { msgEl.style.color='var(--red)'; msgEl.textContent='このオークションは存在しません'; return; }
+  const a = snap.data();
+
+  if (a.ended || Date.now() > a.endAt) { msgEl.style.color='var(--red)'; msgEl.textContent='このオークションは終了しています'; return; }
+  if (a.sellerUid === state.user.uid) { msgEl.style.color='var(--red)'; msgEl.textContent='自分の出品には入札できません'; return; }
+  if (amount <= a.currentPrice) { msgEl.style.color='var(--red)'; msgEl.textContent=`${fmt(a.currentPrice + 1)}以上で入札してください`; return; }
+  if (amount > state.userData.cash) { msgEl.style.color='var(--red)'; msgEl.textContent='現金が足りません'; return; }
+
+  try {
+    const bids = a.bids || [];
+    bids.push({ uid: state.user.uid, name: state.userData.name, amount, timestamp: Date.now() });
+    await updateDoc(doc(db, 'auctions', auctionId), {
+      currentPrice: amount,
+      currentBidder: state.user.uid,
+      currentBidderName: state.userData.name,
+      bids,
+    });
+    msgEl.style.color = 'var(--green)';
+    msgEl.textContent = `✓ ${fmt(amount)} で入札しました！`;
+    showNotif(`🔨 ${a.title} に ${fmt(amount)} で入札！`, 'ok');
+  } catch(e) {
+    msgEl.style.color = 'var(--red)'; msgEl.textContent = 'エラー: ' + e.message;
+  }
+};
+
+// オークション終了チェック（落札処理）
+async function checkAuctionEnd(a) {
+  if (a.ended || Date.now() < a.endAt) return;
+  // 自分が出品者のときだけ処理（二重処理防止）
+  if (a.sellerUid !== state.user.uid) return;
+
+  try {
+    await updateDoc(doc(db, 'auctions', a.id), { ended: true });
+    if (a.currentBidder && a.currentBidder !== a.sellerUid) {
+      // 落札者から現金を引く
+      const buyerSnap = await getDoc(doc(db, 'users', a.currentBidder));
+      if (buyerSnap.exists()) {
+        const buyerData = buyerSnap.data();
+        const newBuyerCash = (Number(buyerData.cash) || 0) - a.currentPrice;
+        await updateDoc(doc(db, 'users', a.currentBidder), { cash: Math.max(0, newBuyerCash) });
+      }
+      // 出品者に現金を加える
+      state.userData.cash += a.currentPrice;
+      await updateDoc(doc(db, 'users', a.sellerUid), { cash: state.userData.cash });
+      renderSidebar();
+      showNotif(`🔨 "${a.title}" が ${fmt(a.currentPrice)} で落札されました！`, 'ok');
+    }
+  } catch(e) {}
+}
+
+// 落札されたとき自分のcashを更新（買い手側）
+async function checkIfWon() {
+  if (!state.user) return;
+  try {
+    const q = query(collection(db, 'auctions'),
+      where('currentBidder', '==', state.user.uid),
+      where('ended', '==', true),
+      limit(10));
+    const snap = await getDocs(q);
+    // Firestoreから最新のcashを取得して同期
+    const userSnap = await getDoc(doc(db, 'users', state.user.uid));
+    if (userSnap.exists()) {
+      const latest = Number(userSnap.data().cash);
+      if (latest !== state.userData.cash) {
+        state.userData.cash = latest;
+        renderSidebar();
+      }
+    }
+  } catch(e) {}
+}
+
+// 自分の出品一覧
+async function renderMyAuctions() {
+  const el = document.getElementById('auction-mine-content');
+  el.innerHTML = '<div class="auction-loading">読み込み中...</div>';
+  try {
+    const q = query(collection(db, 'auctions'),
+      where('sellerUid', '==', state.user.uid),
+      orderBy('createdAt', 'desc'), limit(20));
+    const snap = await getDocs(q);
+    if (snap.empty) { el.innerHTML = '<div class="auction-loading">出品履歴がありません</div>'; return; }
+
+    let html = '';
+    snap.forEach(d => {
+      const a = { id: d.id, ...d.data() };
+      const ended = a.ended || Date.now() > a.endAt;
+      const imgHtml = a.image
+        ? `<div class="auction-mine-img"><img src="${a.image}"></div>`
+        : `<div class="auction-mine-img">📦</div>`;
+      html += `<div class="auction-mine-card">
+        ${imgHtml}
+        <div style="flex:1">
+          <div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">${a.title}</div>
+          <div style="font-size:12px;color:var(--gold);margin-bottom:4px">${fmt(a.currentPrice)} ${a.currentBidderName ? '(最高: '+a.currentBidderName.substring(0,8)+')' : '(入札なし)'}</div>
+          <div style="font-size:11px;color:var(--muted)">${ended ? (a.currentBidder ? '✓ 落札済み' : '流札') : '出品中 残り'+formatRemaining(a.endAt)}</div>
+        </div>
+        ${!ended ? '<button class="auction-cancel-btn" onclick="cancelAuction(\'' + a.id + '\')">取り消し</button>' : ''}
+      </div>`;
+    });
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red)">エラー: ' + e.message + '</div>';
+  }
+}
+
+// 出品取り消し（入札がない場合のみ）
+window.cancelAuction = async id => {
+  const snap = await getDoc(doc(db, 'auctions', id));
+  if (!snap.exists()) return;
+  const a = snap.data();
+  if (a.currentBidder) { showNotif('入札があるため取り消せません', 'err'); return; }
+  if (confirm(`"${a.title}" の出品を取り消しますか？`)) {
+    await deleteDoc(doc(db, 'auctions', id));
+    showNotif('出品を取り消しました', 'ok');
+    renderMyAuctions();
+  }
+};
+
 function showNotif(msg, type) {
   const el=document.getElementById('notif');
   el.textContent=msg; el.className='notif '+type+' show';
@@ -1573,7 +2106,7 @@ window.adminSetCash = async () => {
   }
 };
 
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') { closeModal(); closeAuctionModal(); } });
 document.getElementById('trade-modal').addEventListener('click', e=>{ if(e.target===e.currentTarget) closeModal(); });
 
 // ════════════════════════════════
@@ -1623,6 +2156,7 @@ window.navTo = page => {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.page===page));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
+  if (page==='auction') { initAuctionPage(); checkIfWon(); }
   if (page==='events') renderEventLog();
   if (page==='holdings') renderHoldings();
   if (page==='history') renderHistory();
