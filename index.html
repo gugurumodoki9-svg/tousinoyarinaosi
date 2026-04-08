@@ -1825,23 +1825,23 @@ function renderAuctionList(auctions) {
     const imgHtml = a.image
       ? `<div class="auction-card-img"><img src="${a.image}" alt="${a.title}"></div>`
       : `<div class="auction-card-img">📦</div>`;
-    html += `
-      <div class="auction-card ${ended?'ended':''}" onclick="${ended?'':'openAuctionModal(''+a.id+'')'}">
-        ${imgHtml}
-        <div class="auction-card-body">
-          <div class="auction-card-title">${a.title}</div>
-          <div class="auction-card-desc">${a.desc || '説明なし'}</div>
-          <div class="auction-card-price">${fmt(a.currentPrice)}</div>
-          <div class="auction-card-meta">
-            <span>${a.currentBidderName ? '最高入札: ' + a.currentBidderName.substring(0,8) : '入札なし'}</span>
-            ${ended
-              ? '<span style="color:var(--muted)">終了</span>'
-              : '<span class="auction-timer' + ((a.endAt - Date.now()) < 300000 ? ' urgent' : '') + '" id="timer-' + a.id + '">' + formatRemaining(a.endAt) + '</span>'
-            }
-          </div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">出品: ${a.sellerName?.substring(0,10) || '---'}</div>
-        </div>
-      </div>`;
+    const cardOnclick = ended ? '' : 'onclick="openAuctionModal(\'' + a.id + '\')"';
+    const timerHtml = ended
+      ? '<span style="color:var(--muted)">終了</span>'
+      : '<span class="auction-timer' + ((a.endAt - Date.now()) < 300000 ? ' urgent' : '') + '" id="timer-' + a.id + '">' + formatRemaining(a.endAt) + '</span>';
+    const bidderHtml = a.currentBidderName ? '最高入札: ' + a.currentBidderName.substring(0,8) : '入札なし';
+    html += '<div class="auction-card ' + (ended?'ended':'') + '" ' + cardOnclick + '>'
+      + imgHtml
+      + '<div class="auction-card-body">'
+      + '<div class="auction-card-title">' + a.title + '</div>'
+      + '<div class="auction-card-desc">' + (a.desc || '説明なし') + '</div>'
+      + '<div class="auction-card-price">' + fmt(a.currentPrice) + '</div>'
+      + '<div class="auction-card-meta">'
+      + '<span>' + bidderHtml + '</span>'
+      + timerHtml
+      + '</div>'
+      + '<div style="font-size:10px;color:var(--muted);margin-top:4px">出品: ' + (a.sellerName ? a.sellerName.substring(0,10) : '---') + '</div>'
+      + '</div></div>';
   });
   html += '</div>';
   el.innerHTML = html;
