@@ -584,6 +584,14 @@ body::after {
       </div>
 
       <div class="stocks-grid" id="stocks-grid"></div>
+
+      <!-- 他プレイヤーの会社 -->
+      <div style="margin-top:28px">
+        <div style="font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:2px;color:var(--text);margin-bottom:14px">🏭 プレイヤー企業</div>
+        <div id="market-companies-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+          <div style="color:var(--muted);font-size:12px">読み込み中...</div>
+        </div>
+      </div>
     </div>
 
     <!-- 保有株 -->
@@ -1923,6 +1931,60 @@ function renderSidebar() {
 }
 
 // グラフ描画（カードを再利用してちらつき防止）
+async function renderMarketCompanies() {
+  const el = document.getElementById('market-companies-grid');
+  if (!el) return;
+  try {
+    const snap = await getDocs(query(collection(db,'companies'), limit(20)));
+    if (snap.empty) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">まだ会社はありません</div>'; return; }
+    el.innerHTML = '';
+    snap.forEach(d => {
+      const c = d.data();
+      if (c.bankrupt) return;
+      const ind = INDUSTRIES ? INDUSTRIES.find(i => i.id === c.industry) : null;
+      const isOwn = c.ownerUid === state.user?.uid;
+      const sharePrice = calcCompanySharePriceFromData ? calcCompanySharePriceFromData(c) : 0;
+      const availShares = 1000 - (c.soldShares||0);
+      const myShares = (state.userData?.companyStocks||{})[c.ownerUid] || 0;
+      const card = document.createElement('div');
+      card.className = 'stock-card';
+      card.style.cursor = 'default';
+      let buyBtns = '';
+      if (availShares > 0 && !isOwn) {
+        buyBtns = '<div style="display:flex;gap:6px;margin-top:10px;align-items:center">'
+          + '<input type="number" id="mkt-qty-' + c.ownerUid + '" value="1" min="1" max="' + availShares + '" style="width:60px;padding:6px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--font-mono);font-size:12px">'
+          + '<button data-owner="' + c.ownerUid + '" data-price="' + sharePrice + '" data-action="buy-mkt" style="flex:1;padding:7px;background:var(--blue);border:none;border-radius:3px;color:#fff;font-size:12px;cursor:pointer">購入</button>'
+          + (myShares > 0 ? '<button data-owner="' + c.ownerUid + '" data-price="' + sharePrice + '" data-action="sell-mkt" style="padding:7px 10px;background:transparent;border:1px solid var(--red);border-radius:3px;color:var(--red);font-size:12px;cursor:pointer">売却</button>' : '')
+          + '</div>';
+      }
+      card.innerHTML = '<div class="stock-header">'
+        + '<div><div class="stock-ticker">' + (ind ? ind.icon : '🏢') + ' ' + c.name.substring(0,12) + '</div>'
+        + '<div class="stock-name">' + (ind ? ind.name : '会社') + ' · ' + c.ownerName.substring(0,8) + (isOwn ? ' (自分)' : '') + '</div></div>'
+        + '<div class="stock-sector">' + (c.employees||1) + '人</div>'
+        + '</div>'
+        + '<div class="stock-price" style="color:var(--gold)">' + fmt(sharePrice) + '/株</div>'
+        + '<div class="stock-change" style="color:var(--muted);font-size:11px">残り' + availShares + '株' + (myShares > 0 ? ' · 保有' + myShares + '株' : '') + '</div>'
+        + buyBtns;
+      el.appendChild(card);
+    });
+    if (!el.children.length) el.innerHTML = '<div style="color:var(--muted);font-size:12px">現在活動中の会社はありません</div>';
+    el.onclick = async (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const ownerUid = btn.dataset.owner;
+      const price = parseInt(btn.dataset.price);
+      const qty = parseInt(document.getElementById('mkt-qty-' + ownerUid)?.value) || 1;
+      if (btn.dataset.action === 'buy-mkt') await buyCompanyShare(ownerUid, price, qty);
+      else if (btn.dataset.action === 'sell-mkt') await sellCompanyShare(ownerUid, price, qty);
+    };
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red);font-size:12px">読み込み失敗: ' + e.message + '</div>';
+  }
+}
+
+// buyCompanyShareのqty参照をmkt-share-qtyに対応
+const _origBuyCompanyShare = window.buyCompanyShare;
+
 function renderMarket() {
   const grid = document.getElementById('stocks-grid');
   STOCKS.forEach(s => {
@@ -2742,6 +2804,7 @@ window.navTo = page => {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.page===page));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
+  if (page==='market') { setTimeout(renderMarketCompanies, 200); }
   if (page==='auction') { initAuctionPage(); checkIfWon(); }
   if (page==='events') renderEventLog();
   if (page==='holdings') renderHoldings();
@@ -3430,11 +3493,21 @@ const INDUSTRIES = [
 ];
 
 const COMPANY_UPGRADES = [
-  { id:'equipment1', name:'設備強化 Lv1', icon:'🔧', cost:300000,   effect:'収益+20%',        desc:'基本設備を刷新。収益倍率が上がる。',  requires:null,        equipLevel:1 },
-  { id:'equipment2', name:'設備強化 Lv2', icon:'⚙️',  cost:800000,   effect:'収益+40%',        desc:'最新機器を導入。さらに効率が上がる。', requires:'equipment1', equipLevel:2 },
-  { id:'equipment3', name:'設備強化 Lv3', icon:'🤖', cost:2000000,  effect:'収益+70%',        desc:'自動化システムを構築。',              requires:'equipment2', equipLevel:3 },
-  { id:'marketing',  name:'マーケ強化',   icon:'📣', cost:200000,   effect:'収益+10%（永続）', desc:'ブランド認知度を向上。',              requires:null,        equipLevel:0 },
-  { id:'security',   name:'リスク管理',   icon:'🛡️',  cost:400000,   effect:'倒産確率-50%',    desc:'経営リスクへの備えを強化。',          requires:null,        equipLevel:0 },
+  // 設備強化（段階的・Lv1→2→3→4→5）
+  { id:'equipment1', name:'設備強化 Lv1', icon:'🔧', cost:300000,   effect:'収益+20%',  desc:'基本設備を刷新。',           requires:null,        equipLevel:1 },
+  { id:'equipment2', name:'設備強化 Lv2', icon:'⚙️',  cost:800000,   effect:'収益+40%',  desc:'最新機器を導入。',           requires:'equipment1', equipLevel:2 },
+  { id:'equipment3', name:'設備強化 Lv3', icon:'🤖', cost:2000000,  effect:'収益+70%',  desc:'自動化システム構築。',       requires:'equipment2', equipLevel:3 },
+  { id:'equipment4', name:'設備強化 Lv4', icon:'🏭', cost:5000000,  effect:'収益+110%', desc:'工場を全面刷新。',           requires:'equipment3', equipLevel:4 },
+  { id:'equipment5', name:'設備強化 Lv5', icon:'🚀', cost:15000000, effect:'収益+180%', desc:'最先端ラインを完全導入。',   requires:'equipment4', equipLevel:5 },
+  // マーケティング（段階的・Lv1→2→3）
+  { id:'marketing1', name:'マーケ Lv1',   icon:'📣', cost:200000,   effect:'収益+10%',  desc:'基本的な広告活動。',         requires:null,        equipLevel:0, mktLevel:1 },
+  { id:'marketing2', name:'マーケ Lv2',   icon:'📢', cost:600000,   effect:'収益+20%',  desc:'SNS・デジタル広告展開。',    requires:'marketing1', equipLevel:0, mktLevel:2 },
+  { id:'marketing3', name:'マーケ Lv3',   icon:'🌐', cost:2000000,  effect:'収益+35%',  desc:'全国規模のブランド戦略。',   requires:'marketing2', equipLevel:0, mktLevel:3 },
+  // その他強化
+  { id:'security',   name:'リスク管理',   icon:'🛡️',  cost:400000,   effect:'倒産確率-50%', desc:'経営リスクへの備えを強化。', requires:null,       equipLevel:0 },
+  { id:'rd',         name:'R&D投資',      icon:'🔬', cost:1000000,  effect:'収益+15%・イベント耐性', desc:'研究開発部門を設立。', requires:null,      equipLevel:0 },
+  { id:'hr',         name:'人事強化',     icon:'👥', cost:500000,   effect:'雇用コスト-15%', desc:'人材採用・育成を効率化。', requires:null,       equipLevel:0 },
+  { id:'logistics',  name:'物流最適化',   icon:'🚚', cost:800000,   effect:'収益+12%（安定化）', desc:'仕入れ・配送を効率化。', requires:null,      equipLevel:0 },
 ];
 
 const EMPLOYEE_TIERS = [
@@ -3475,7 +3548,13 @@ function calcCompanyValue(company) {
     ? Math.max(0.2, (state.prices[ind.linkedTicker] || linkedStock.base) / linkedStock.base)
     : 1;
   const tier = EMPLOYEE_TIERS.slice().reverse().find(e => company.employees >= e.min) || EMPLOYEE_TIERS[0];
-  const equipMult = 1 + (company.equipLevel || 0) * 0.2 + (company.upgrades?.marketing ? 0.1 : 0);
+  const _eLevel2 = company.equipLevel||0;
+  const _equipBonus2 = [0,0.20,0.40,0.70,1.10,1.80][_eLevel2] || 0;
+  const _mktLevel2 = company.mktLevel||0;
+  const _mktBonus2 = [0,0.10,0.20,0.35][_mktLevel2] || 0;
+  const _rdBonus2 = company.upgrades?.rd ? 0.15 : 0;
+  const _logBonus2 = company.upgrades?.logistics ? 0.12 : 0;
+  const equipMult = 1 + _equipBonus2 + _mktBonus2 + _rdBonus2 + _logBonus2;
   const monthlyIncome = ind.baseIncome * Math.max(0.2, stockRatio) * tier.incomeMult * equipMult;
   return Math.round(monthlyIncome * 12 * 5);
 }
@@ -3503,7 +3582,13 @@ async function tickCompany() {
       : 1;
 
     const tier = EMPLOYEE_TIERS.slice().reverse().find(e => company.employees >= e.min) || EMPLOYEE_TIERS[0];
-    const equipMult = 1 + (company.equipLevel || 0) * 0.2 + (company.upgrades?.marketing ? 0.1 : 0);
+    const _eLevel2 = company.equipLevel||0;
+  const _equipBonus2 = [0,0.20,0.40,0.70,1.10,1.80][_eLevel2] || 0;
+  const _mktLevel2 = company.mktLevel||0;
+  const _mktBonus2 = [0,0.10,0.20,0.35][_mktLevel2] || 0;
+  const _rdBonus2 = company.upgrades?.rd ? 0.15 : 0;
+  const _logBonus2 = company.upgrades?.logistics ? 0.12 : 0;
+  const equipMult = 1 + _equipBonus2 + _mktBonus2 + _rdBonus2 + _logBonus2;
 
     // 収益と人件費
     const grossIncome = Math.round(ind.baseIncome * stockRatio * tier.incomeMult * equipMult);
@@ -3760,50 +3845,31 @@ function calcCompanySharePriceFromData(company) {
 window.doFoundCompany = async () => {
   const selectedId = window._selectedIndustry?.();
   const name = document.getElementById('company-name-input')?.value.trim();
-  const msgEl = document.getElementById('found-msg');
-  if (!selectedId) { msgEl.textContent = '業種を選んでください'; return; }
-  if (!name) { msgEl.textContent = '会社名を入力してください'; return; }
+  if (!selectedId) { document.getElementById('found-msg').textContent = '業種を選んでください'; return; }
+  if (!name) { document.getElementById('found-msg').textContent = '会社名を入力してください'; return; }
   const ind = INDUSTRIES.find(i => i.id === selectedId);
   if (!ind) return;
-  if ((state.userData?.cash||0) < ind.cost) { msgEl.textContent = '資金が足りません'; return; }
+  if ((state.userData?.cash||0) < ind.cost) { document.getElementById('found-msg').textContent = '資金が足りません'; return; }
 
   const btn = document.getElementById('found-btn');
   btn.disabled = true; btn.textContent = '設立中...';
-  msgEl.textContent = '';
 
-  // 先に所持金を引いてFirestoreに保存
-  const prevCash = state.userData.cash;
   state.userData.cash -= ind.cost;
+  await updateDoc(doc(db,'users',state.user.uid), { cash: state.userData.cash }).catch(()=>{});
 
-  try {
-    // 会社データを作成
-    const companyData = {
-      name, industry: selectedId, ownerUid: state.user.uid, ownerName: state.userData.name,
-      employees: 1, capital: ind.cost * 0.3, equipLevel: 0,
-      upgrades: {}, soldShares: 0, bankrupt: false, foundedAt: Date.now(), lastTick: Date.now(),
-    };
-    await setDoc(doc(db, 'companies', state.user.uid), companyData);
+  const companyData = {
+    name, industry: selectedId, ownerUid: state.user.uid, ownerName: state.userData.name,
+    employees: 1, capital: ind.cost * 0.3, equipLevel: 0,
+    upgrades: {}, soldShares: 0, bankrupt: false, foundedAt: Date.now(), lastTick: Date.now(),
+  };
+  await setDoc(doc(db, 'companies', state.user.uid), companyData);
+  // 自分自身をオーナー株主として登録（500株保有）
+  await setDoc(doc(db, 'companies', state.user.uid, 'shareholders', state.user.uid), {
+    uid: state.user.uid, name: state.userData.name, shares: 500, cachedCash: state.userData.cash,
+  });
 
-    // 株主登録
-    await setDoc(doc(db, 'companies', state.user.uid, 'shareholders', state.user.uid), {
-      uid: state.user.uid, name: state.userData.name, shares: 500, cachedCash: state.userData.cash,
-    });
-
-    // 所持金を保存（会社作成成功後）
-    await setDoc(doc(db,'users',state.user.uid), { cash: state.userData.cash }, { merge: true });
-
-    showNotif('🎉 ' + name + ' を設立しました！', 'ok');
-    renderCompanyPage();
-  } catch(e) {
-    // 失敗したら所持金を戻す
-    state.userData.cash = prevCash;
-    renderSidebar();
-    btn.disabled = false;
-    btn.textContent = ind.cost + ' で起業する';
-    msgEl.style.color = 'var(--red)';
-    msgEl.textContent = 'エラー: ' + e.message + '（Firestoreのルールを確認してください）';
-    console.error('doFoundCompany error:', e);
-  }
+  showNotif(`🎉 ${name} を設立しました！`, 'ok');
+  renderCompanyPage();
 };
 
 // ─── 経営ダッシュボード ───
@@ -3819,9 +3885,16 @@ async function renderCompanyDashboard(company, el) {
   const linkedStock = STOCKS.find(s => s.ticker === ind.linkedTicker);
   const stockRatio = linkedStock ? Math.max(0.2, (state.prices[ind.linkedTicker]||linkedStock.base)/linkedStock.base) : 1;
   const tier = EMPLOYEE_TIERS.slice().reverse().find(e => c.employees >= e.min) || EMPLOYEE_TIERS[0];
-  const equipMult = 1 + (c.equipLevel||0)*0.2 + (c.upgrades?.marketing?0.1:0);
+  const _eLevel = c.equipLevel||0;
+  const _equipBonus = [0,0.20,0.40,0.70,1.10,1.80][_eLevel] || 0;
+  const _mktLevel = c.mktLevel||0;
+  const _mktBonus = [0,0.10,0.20,0.35][_mktLevel] || 0;
+  const _rdBonus = c.upgrades?.rd ? 0.15 : 0;
+  const _logBonus = c.upgrades?.logistics ? 0.12 : 0;
+  const equipMult = 1 + _equipBonus + _mktBonus + _rdBonus + _logBonus;
   const grossIncome = Math.round(ind.baseIncome * stockRatio * tier.incomeMult * equipMult);
-  const totalWages  = Math.round(ind.wages * c.employees * tier.wagePerHead);
+  const _hrMult = c.upgrades?.hr ? 0.85 : 1.0;
+  const totalWages  = Math.round(ind.wages * c.employees * tier.wagePerHead * _hrMult);
   const netPerMin   = grossIncome - totalWages;
   const sharePrice  = calcCompanySharePriceFromData(c);
   const availShares = COMPANY_STOCK_TOTAL_SHARES - (c.soldShares||0);
@@ -3831,7 +3904,7 @@ async function renderCompanyDashboard(company, el) {
   const stockEffectStr = stockRatio >= 1 ? `+${stockEffectPct}%` : `${stockEffectPct}%`;
 
   // アップグレード表示名マップ
-  const upgradeNames = { equipment1:'設備Lv1', equipment2:'設備Lv2', equipment3:'設備Lv3', marketing:'マーケ', security:'リスク管理' };
+  const upgradeNames = { equipment1:'設備Lv1', equipment2:'設備Lv2', equipment3:'設備Lv3', equipment4:'設備Lv4', equipment5:'設備Lv5', marketing1:'マーケLv1', marketing2:'マーケLv2', marketing3:'マーケLv3', security:'リスク管理', rd:'R&D', hr:'人事強化', logistics:'物流最適化' };
 
   el.innerHTML = `
     <div class="company-main">
@@ -4045,6 +4118,7 @@ window.buyUpgrade = async (upgradeId) => {
   await updateDoc(doc(db,'users',state.user.uid), { cash: state.userData.cash }).catch(()=>{});
   const update = { [`upgrades.${upgradeId}`]: true };
   if (upg.equipLevel > 0) update.equipLevel = upg.equipLevel;
+  if (upg.mktLevel > 0) update.mktLevel = upg.mktLevel;
   await updateDoc(doc(db,'companies',state.user.uid), update);
   _companyLog.unshift({ msg: `🔧 ${upg.name} 導入`, amount: -upg.cost, time: Date.now() });
   showNotif(`${upg.name} を導入しました！`, 'ok');
@@ -4062,7 +4136,7 @@ window.dissolveCompany = async () => {
 
 // ─── 他プレイヤーの会社株を購入 ───
 window.buyCompanyShare = async (ownerUid, sharePrice) => {
-  const qtyEl = document.getElementById(`share-qty-${ownerUid}`);
+  const qtyEl = document.getElementById('mkt-share-qty-'+ownerUid) || document.getElementById('share-qty-'+ownerUid);
   const qty = parseInt(qtyEl?.value) || 1;
   const totalCost = sharePrice * qty;
   if ((state.userData?.cash||0) < totalCost) { showNotif('資金が足りません', 'err'); return; }
