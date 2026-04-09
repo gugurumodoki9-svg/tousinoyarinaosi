@@ -1497,15 +1497,7 @@ onAuthStateChanged(auth, async user => {
 
     // 所持金リセット機能: 無効化済み（CASH_RESET_VERを上げると再発動）
 
-    // 株価リセットバージョンチェック（古いlastPricesを無効化）
-    if ((state.userData.priceResetVer || 0) < PRICE_RESET_VER) {
-      state.userData.lastPrices = {};
-      state.userData.lastHistory = {};
-      state.userData.priceResetVer = PRICE_RESET_VER;
-      await updateDoc(doc(db,'users',user.uid), {
-        lastPrices: {}, lastHistory: {}, priceResetVer: PRICE_RESET_VER
-      }).catch(()=>{});
-    }
+    // 株価リセットバージョンチェック: 無効化済み（グラフ履歴を保持するため）
 
     // まず保存済みの株価・チャートでstateを初期化
     initPrices(state.userData.lastPrices, state.userData.lastHistory);
@@ -3150,7 +3142,7 @@ function pkDrawCanvas(){
   ctx.strokeStyle=pkEquippedTool==='t-magnet'?'#f0f':'#0ff'; ctx.strokeRect(cX,305,catcherW,14);
   for(let i=0;i<pkActiveBalls.length;i++){
     let b=pkActiveBalls[i];
-    b.vy+=0.45; b.x+=b.vx*1.4; b.y+=b.vy*1.4;
+    b.vy+=0.22; b.x+=b.vx*1.0; b.y+=b.vy*1.0;
     pkPegs.forEach(p=>{ const dx=b.x-p.x,dy=b.y-p.y,d=Math.sqrt(dx*dx+dy*dy); if(d<7){ const a=Math.atan2(dy,dx); b.vx=Math.cos(a)*1.2; b.vy=Math.sin(a)*1.2; } });
     pkOutHoles.forEach(h=>{ if(b.x>h.x&&b.x<h.x+h.w&&b.y>h.y&&b.y<h.y+h.h){ pkActiveBalls.splice(i,1); i--; } });
     if(b&&b.y>305&&b.x>cX&&b.x<cX+catcherW){ pkActiveBalls.splice(i,1); i--; const sm=pkEquippedTool==='t-triple'?8:4; if(pkStock<sm){ pkStock++; pkUpdateUI(); pkStartSlot(); } }
