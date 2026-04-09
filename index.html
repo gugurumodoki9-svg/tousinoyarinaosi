@@ -1189,13 +1189,13 @@ async function saveSession() {
     history[s.ticker] = (state.priceHistory[s.ticker] || []).slice(-30);
   });
   try {
-    await updateDoc(doc(db,'users',state.user.uid), {
+    await setDoc(doc(db,'users',state.user.uid), {
       lastSeen: Date.now(),
       lastPrices: prices,
       lastHistory: history,
       cash: state.userData.cash,
-    });
-  } catch(e) {}
+    }, { merge: true });
+  } catch(e) { console.warn('saveSession failed:', e.message); }
 }
 
 // ログイン時に離脱中の経過を一気に計算して適用
@@ -1415,7 +1415,7 @@ function tickPrices() {
     state.userData.cash += cashDelta;
   }
 
-  // 毎ティック株価・履歴・現金をFirestoreに保存（再読み込み対策）
+  // 毎ティック（5秒ごと）に株価・履歴・現金を保存
   window._tickCount = (window._tickCount || 0) + 1;
   if (state.user && state.userData) {
     const lp = {}, lh = {};
@@ -1423,12 +1423,12 @@ function tickPrices() {
       lp[s.ticker] = state.prices[s.ticker];
       lh[s.ticker] = state.priceHistory[s.ticker].slice(-30);
     });
-    updateDoc(doc(db,'users',state.user.uid), {
+    setDoc(doc(db,'users',state.user.uid), {
       cash: state.userData.cash,
       lastPrices: lp,
       lastHistory: lh,
       lastSeen: Date.now(),
-    }).catch(()=>{});
+    }, { merge: true }).catch(e => console.warn('save failed:', e.message));
   }
 
   renderMarket();
@@ -1526,12 +1526,12 @@ onAuthStateChanged(auth, async user => {
       offlinePrices[s.ticker] = state.prices[s.ticker] || s.base;
       offlineHistory[s.ticker] = (state.priceHistory[s.ticker] || []).slice(-30);
     });
-    await updateDoc(doc(db,'users',user.uid), {
+    await setDoc(doc(db,'users',user.uid), {
       cash: state.userData.cash,
       lastPrices: offlinePrices,
       lastHistory: offlineHistory,
       lastSeen: Date.now(),
-    }).catch(()=>{});
+    }, { merge: true }).catch(e => console.warn('login save failed:', e.message));
 
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('game-screen').classList.add('active');
