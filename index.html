@@ -953,7 +953,7 @@ body::after {
             <div id="pk-stock-lamps">○○○○</div>
             <div>
               <button id="pk-shootBtn">玉を発射</button>
-              <button id="pk-buy-balls-btn">玉を購入 ($150)</button>
+              <button id="pk-buy-balls-btn">玉を購入 ($300)</button>
             </div>
             <div id="pk-stats">
               <div>💰 $<span id="pk-money-display">0</span></div>
@@ -1132,7 +1132,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const INITIAL_CASH = 100_000;
-const PRICE_RESET_VER = 2;
+const PRICE_RESET_VER = 3; // 2→3: 過去の強制リセットを無効化（グラフ履歴を保持するため）
 const CASH_RESET_VER = 1; // この値を上げると全員のcashがINITIAL_CASHにリセット // この値を上げると全ユーザーの株価がリセットされる
 const PRICE_TICK = 5000;
 const STOCKS = [
@@ -3104,7 +3104,7 @@ window.pkExchangeSingle = (type) => {
   const earned=pkInventory[type]*rate; pkInventory[type]=0;
   pkAddMoney(earned); pkUpdateUI(); pkToast(`💱 $${earned.toLocaleString()} 換金！`,'#ffd700');
 };
-window.pkBuyBalls = () => { if(pkGetMoney()<150) return; pkAddMoney(-150); pkTotalSpent+=150; pkBalls+=50; pkUpdateUI(); };
+window.pkBuyBalls = () => { if(pkGetMoney()<300) return; pkAddMoney(-300); pkTotalSpent+=300; pkBalls+=50; pkUpdateUI(); };
 window.pkSoftReset = () => {
   if(!confirm('データをリセットしますか？所持金は投資ゲームと共通なのでリセットされません。')) return;
   localStorage.removeItem('pk_balls'); localStorage.removeItem('pk_debt'); localStorage.removeItem('pk_prizes');
@@ -3150,7 +3150,7 @@ function pkDrawCanvas(){
   ctx.strokeStyle=pkEquippedTool==='t-magnet'?'#f0f':'#0ff'; ctx.strokeRect(cX,305,catcherW,14);
   for(let i=0;i<pkActiveBalls.length;i++){
     let b=pkActiveBalls[i];
-    b.vy+=0.09; b.x+=b.vx*0.6; b.y+=b.vy*0.6;
+    b.vy+=0.45; b.x+=b.vx*1.4; b.y+=b.vy*1.4;
     pkPegs.forEach(p=>{ const dx=b.x-p.x,dy=b.y-p.y,d=Math.sqrt(dx*dx+dy*dy); if(d<7){ const a=Math.atan2(dy,dx); b.vx=Math.cos(a)*1.2; b.vy=Math.sin(a)*1.2; } });
     pkOutHoles.forEach(h=>{ if(b.x>h.x&&b.x<h.x+h.w&&b.y>h.y&&b.y<h.y+h.h){ pkActiveBalls.splice(i,1); i--; } });
     if(b&&b.y>305&&b.x>cX&&b.x<cX+catcherW){ pkActiveBalls.splice(i,1); i--; const sm=pkEquippedTool==='t-triple'?8:4; if(pkStock<sm){ pkStock++; pkUpdateUI(); pkStartSlot(); } }
