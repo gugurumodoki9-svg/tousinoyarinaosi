@@ -1121,12 +1121,12 @@ import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, si
 import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, onSnapshot, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const app = initializeApp({
-  apiKey: "AIzaSyAal3KAzh4IWnvP_UUNHFJGVV2mTLqj3hE",
-  authDomain: "konndokosohababanuki.firebaseapp.com",
-  projectId: "konndokosohababanuki",
-  storageBucket: "konndokosohababanuki.firebasestorage.app",
-  messagingSenderId: "872652596940",
-  appId: "1:872652596940:web:ed3d067764d82cc381c469"
+  apiKey: "AIzaSyD_AP4492b7tc5RiVkw0OLAdo9RKu8j9zA",
+  authDomain: "fpsga-be2a6.firebaseapp.com",
+  projectId: "fpsga-be2a6",
+  storageBucket: "fpsga-be2a6.firebasestorage.app",
+  messagingSenderId: "196121913886",
+  appId: "1:196121913886:web:8c396f9cc306c20d9f9c0f"
 });
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -1381,7 +1381,7 @@ function tickPrices() {
   const items = state.userData?.items || {};
   let cashDelta = 0;
 
-  // 家賃収入・配当は1分ごと（12ティック = 60秒）、初回は除く
+  // 家賃収入・配当は1分ごと（12ティック = 60秒）
   if (window._tickCount > 0 && window._tickCount % 12 === 0) {
     REAL_ESTATES.forEach(re => {
       const count = realestate[re.id] || 0;
@@ -1415,7 +1415,7 @@ function tickPrices() {
     state.userData.cash += cashDelta;
   }
 
-  // 毎ティック（5秒ごと）に株価・履歴・現金を保存
+  // 毎ティック（5秒）に保存
   window._tickCount = (window._tickCount || 0) + 1;
   if (state.user && state.userData) {
     const lp = {}, lh = {};
@@ -1428,7 +1428,7 @@ function tickPrices() {
       lastPrices: lp,
       lastHistory: lh,
       lastSeen: Date.now(),
-    }, { merge: true }).catch(e => console.warn('save failed:', e.message));
+    }, { merge: true }).catch(e => console.warn('tick save failed:', e.message));
   }
 
   renderMarket();
