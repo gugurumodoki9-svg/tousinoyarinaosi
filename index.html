@@ -497,6 +497,22 @@ body::after {
 @keyframes pk-slot-hit-silver { 0%{box-shadow:0 0 0px #aaa} 50%{box-shadow:0 0 18px #aaa} 100%{box-shadow:0 0 0px #aaa} }
 .pk-slot-win-gold { animation:pk-slot-hit-gold 0.6s ease-in-out 3; border-color:#ffd700 !important; }
 .pk-slot-win-silver { animation:pk-slot-hit-silver 0.6s ease-in-out 3; border-color:#aaa !important; }
+
+/* ─── アップグレードパネル折りたたみ ─── */
+.upg-section { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.upg-section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; cursor: pointer; background: var(--bg2);
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 1px;
+  user-select: none; transition: background .15s;
+}
+.upg-section-header:hover { background: var(--bg3); }
+.upg-section-title { color: var(--text); }
+.upg-section-meta { font-size: 11px; color: var(--muted); margin-left: 8px; }
+.upg-chevron { color: var(--muted); font-size: 12px; transition: transform .2s; }
+.upg-section.open .upg-chevron { transform: rotate(180deg); }
+.upg-section-body { display: none; padding: 10px; background: var(--panel); }
+.upg-section.open .upg-section-body { display: block; }
 </style>
 </head>
 <body>
@@ -2800,6 +2816,12 @@ window.switchShopTab = tab => {
   if (tab==='items') renderItems();
 };
 
+
+window.toggleUpgSection = (id) => {
+  const el = document.getElementById('upg-' + id);
+  if (el) el.classList.toggle('open');
+};
+
 window.navTo = page => {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.page===page));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -3493,21 +3515,33 @@ const INDUSTRIES = [
 ];
 
 const COMPANY_UPGRADES = [
-  // 設備強化（段階的・Lv1→2→3→4→5）
-  { id:'equipment1', name:'設備強化 Lv1', icon:'🔧', cost:300000,   effect:'収益+20%',  desc:'基本設備を刷新。',           requires:null,        equipLevel:1 },
-  { id:'equipment2', name:'設備強化 Lv2', icon:'⚙️',  cost:800000,   effect:'収益+40%',  desc:'最新機器を導入。',           requires:'equipment1', equipLevel:2 },
-  { id:'equipment3', name:'設備強化 Lv3', icon:'🤖', cost:2000000,  effect:'収益+70%',  desc:'自動化システム構築。',       requires:'equipment2', equipLevel:3 },
-  { id:'equipment4', name:'設備強化 Lv4', icon:'🏭', cost:5000000,  effect:'収益+110%', desc:'工場を全面刷新。',           requires:'equipment3', equipLevel:4 },
-  { id:'equipment5', name:'設備強化 Lv5', icon:'🚀', cost:15000000, effect:'収益+180%', desc:'最先端ラインを完全導入。',   requires:'equipment4', equipLevel:5 },
-  // マーケティング（段階的・Lv1→2→3）
-  { id:'marketing1', name:'マーケ Lv1',   icon:'📣', cost:200000,   effect:'収益+10%',  desc:'基本的な広告活動。',         requires:null,        equipLevel:0, mktLevel:1 },
-  { id:'marketing2', name:'マーケ Lv2',   icon:'📢', cost:600000,   effect:'収益+20%',  desc:'SNS・デジタル広告展開。',    requires:'marketing1', equipLevel:0, mktLevel:2 },
-  { id:'marketing3', name:'マーケ Lv3',   icon:'🌐', cost:2000000,  effect:'収益+35%',  desc:'全国規模のブランド戦略。',   requires:'marketing2', equipLevel:0, mktLevel:3 },
+  // 設備強化（段階的・Lv1→10）
+  { id:'equipment1',  name:'設備強化 Lv1',  icon:'🔧', cost:300000,    effect:'収益+20%',   desc:'基本設備を刷新。',                 requires:null,          equipLevel:1 },
+  { id:'equipment2',  name:'設備強化 Lv2',  icon:'⚙️',  cost:800000,    effect:'収益+40%',   desc:'最新機器を導入。',                 requires:'equipment1',  equipLevel:2 },
+  { id:'equipment3',  name:'設備強化 Lv3',  icon:'🤖', cost:2000000,   effect:'収益+70%',   desc:'自動化システム構築。',             requires:'equipment2',  equipLevel:3 },
+  { id:'equipment4',  name:'設備強化 Lv4',  icon:'🏭', cost:5000000,   effect:'収益+110%',  desc:'工場を全面刷新。',                 requires:'equipment3',  equipLevel:4 },
+  { id:'equipment5',  name:'設備強化 Lv5',  icon:'🚀', cost:15000000,  effect:'収益+180%',  desc:'最先端ラインを完全導入。',         requires:'equipment4',  equipLevel:5 },
+  { id:'equipment6',  name:'設備強化 Lv6',  icon:'🛸', cost:40000000,  effect:'収益+270%',  desc:'次世代生産ライン稼働。',           requires:'equipment5',  equipLevel:6 },
+  { id:'equipment7',  name:'設備強化 Lv7',  icon:'⚡', cost:100000000, effect:'収益+390%',  desc:'AI制御型スマート工場。',           requires:'equipment6',  equipLevel:7 },
+  { id:'equipment8',  name:'設備強化 Lv8',  icon:'🌐', cost:250000000, effect:'収益+560%',  desc:'グローバル生産ネットワーク構築。', requires:'equipment7',  equipLevel:8 },
+  { id:'equipment9',  name:'設備強化 Lv9',  icon:'💫', cost:600000000, effect:'収益+780%',  desc:'量子コンピュータ制御システム。',   requires:'equipment8',  equipLevel:9 },
+  { id:'equipment10', name:'設備強化 Lv10', icon:'👑', cost:1500000000,effect:'収益+1100%', desc:'究極の超大型自動化工場。伝説級。', requires:'equipment9',  equipLevel:10 },
+  // マーケティング（段階的・Lv1→10）
+  { id:'marketing1',  name:'マーケ Lv1',    icon:'📣', cost:200000,    effect:'収益+10%',   desc:'基本的な広告活動。',               requires:null,          equipLevel:0, mktLevel:1 },
+  { id:'marketing2',  name:'マーケ Lv2',    icon:'📢', cost:600000,    effect:'収益+22%',   desc:'SNS・デジタル広告展開。',          requires:'marketing1',  equipLevel:0, mktLevel:2 },
+  { id:'marketing3',  name:'マーケ Lv3',    icon:'🌐', cost:2000000,   effect:'収益+38%',   desc:'全国規模のブランド戦略。',         requires:'marketing2',  equipLevel:0, mktLevel:3 },
+  { id:'marketing4',  name:'マーケ Lv4',    icon:'📡', cost:6000000,   effect:'収益+58%',   desc:'テレビCM・大型スポンサー契約。',   requires:'marketing3',  equipLevel:0, mktLevel:4 },
+  { id:'marketing5',  name:'マーケ Lv5',    icon:'🎯', cost:18000000,  effect:'収益+83%',   desc:'インフルエンサー戦略・バイラル。', requires:'marketing4',  equipLevel:0, mktLevel:5 },
+  { id:'marketing6',  name:'マーケ Lv6',    icon:'🏆', cost:50000000,  effect:'収益+115%',  desc:'グローバルブランド展開。',         requires:'marketing5',  equipLevel:0, mktLevel:6 },
+  { id:'marketing7',  name:'マーケ Lv7',    icon:'🌟', cost:130000000, effect:'収益+155%',  desc:'AIパーソナライズ広告システム。',   requires:'marketing6',  equipLevel:0, mktLevel:7 },
+  { id:'marketing8',  name:'マーケ Lv8',    icon:'💎', cost:320000000, effect:'収益+203%',  desc:'世界同時多国語マーケティング。',   requires:'marketing7',  equipLevel:0, mktLevel:8 },
+  { id:'marketing9',  name:'マーケ Lv9',    icon:'🔥', cost:750000000, effect:'収益+262%',  desc:'宇宙広告・メタバース展開。',       requires:'marketing8',  equipLevel:0, mktLevel:9 },
+  { id:'marketing10', name:'マーケ Lv10',   icon:'👑', cost:1800000000,effect:'収益+335%',  desc:'地球上全人類へのブランド浸透。',   requires:'marketing9',  equipLevel:0, mktLevel:10 },
   // その他強化
-  { id:'security',   name:'リスク管理',   icon:'🛡️',  cost:400000,   effect:'倒産確率-50%', desc:'経営リスクへの備えを強化。', requires:null,       equipLevel:0 },
-  { id:'rd',         name:'R&D投資',      icon:'🔬', cost:1000000,  effect:'収益+15%・イベント耐性', desc:'研究開発部門を設立。', requires:null,      equipLevel:0 },
-  { id:'hr',         name:'人事強化',     icon:'👥', cost:500000,   effect:'雇用コスト-15%', desc:'人材採用・育成を効率化。', requires:null,       equipLevel:0 },
-  { id:'logistics',  name:'物流最適化',   icon:'🚚', cost:800000,   effect:'収益+12%（安定化）', desc:'仕入れ・配送を効率化。', requires:null,      equipLevel:0 },
+  { id:'security',    name:'リスク管理',    icon:'🛡️',  cost:400000,    effect:'倒産確率-50%',         desc:'経営リスクへの備えを強化。', requires:null, equipLevel:0 },
+  { id:'rd',          name:'R&D投資',       icon:'🔬', cost:1000000,   effect:'収益+15%・イベント耐性', desc:'研究開発部門を設立。',       requires:null, equipLevel:0 },
+  { id:'hr',          name:'人事強化',      icon:'👥', cost:500000,    effect:'雇用コスト-15%',         desc:'人材採用・育成を効率化。',   requires:null, equipLevel:0 },
+  { id:'logistics',   name:'物流最適化',    icon:'🚚', cost:800000,    effect:'収益+12%（安定化）',     desc:'仕入れ・配送を効率化。',     requires:null, equipLevel:0 },
 ];
 
 const EMPLOYEE_TIERS = [
@@ -3886,9 +3920,9 @@ async function renderCompanyDashboard(company, el) {
   const stockRatio = linkedStock ? Math.max(0.2, (state.prices[ind.linkedTicker]||linkedStock.base)/linkedStock.base) : 1;
   const tier = EMPLOYEE_TIERS.slice().reverse().find(e => c.employees >= e.min) || EMPLOYEE_TIERS[0];
   const _eLevel = c.equipLevel||0;
-  const _equipBonus = [0,0.20,0.40,0.70,1.10,1.80][_eLevel] || 0;
+  const _equipBonus = [0,0.20,0.40,0.70,1.10,1.80,2.70,3.90,5.60,7.80,11.00][_eLevel] || 0;
   const _mktLevel = c.mktLevel||0;
-  const _mktBonus = [0,0.10,0.20,0.35][_mktLevel] || 0;
+  const _mktBonus = [0,0.10,0.22,0.38,0.58,0.83,1.15,1.55,2.03,2.62,3.35][_mktLevel] || 0;
   const _rdBonus = c.upgrades?.rd ? 0.15 : 0;
   const _logBonus = c.upgrades?.logistics ? 0.12 : 0;
   const equipMult = 1 + _equipBonus + _mktBonus + _rdBonus + _logBonus;
@@ -3904,7 +3938,7 @@ async function renderCompanyDashboard(company, el) {
   const stockEffectStr = stockRatio >= 1 ? `+${stockEffectPct}%` : `${stockEffectPct}%`;
 
   // アップグレード表示名マップ
-  const upgradeNames = { equipment1:'設備Lv1', equipment2:'設備Lv2', equipment3:'設備Lv3', equipment4:'設備Lv4', equipment5:'設備Lv5', marketing1:'マーケLv1', marketing2:'マーケLv2', marketing3:'マーケLv3', security:'リスク管理', rd:'R&D', hr:'人事強化', logistics:'物流最適化' };
+  const upgradeNames = { equipment1:'設備Lv1', equipment2:'設備Lv2', equipment3:'設備Lv3', equipment4:'設備Lv4', equipment5:'設備Lv5', equipment6:'設備Lv6', equipment7:'設備Lv7', equipment8:'設備Lv8', equipment9:'設備Lv9', equipment10:'設備Lv10', marketing1:'マーケLv1', marketing2:'マーケLv2', marketing3:'マーケLv3', marketing4:'マーケLv4', marketing5:'マーケLv5', marketing6:'マーケLv6', marketing7:'マーケLv7', marketing8:'マーケLv8', marketing9:'マーケLv9', marketing10:'マーケLv10', security:'リスク管理', rd:'R&D', hr:'人事強化', logistics:'物流最適化' };
 
   el.innerHTML = `
     <div class="company-main">
@@ -3921,7 +3955,7 @@ async function renderCompanyDashboard(company, el) {
 
       <div class="company-status-row">
         <div class="status-pill"><span class="status-pill-label">👤 従業員</span><span class="status-pill-val" style="color:var(--green)">${c.employees}人</span></div>
-        <div class="status-pill"><span class="status-pill-label">⚙️ 設備Lv</span><span class="status-pill-val" style="color:var(--blue)">${c.equipLevel||0} / 3</span></div>
+        <div class="status-pill"><span class="status-pill-label">⚙️ 設備Lv</span><span class="status-pill-val" style="color:var(--blue)">${c.equipLevel||0} / 10</span></div>
         <div class="status-pill"><span class="status-pill-label">📈 純利益/分</span><span class="status-pill-val" style="color:${netPerMin>=0?'var(--green)':'var(--red)'}">${netPerMin>=0?'+':''}${fmt(netPerMin)}</span></div>
         <div class="status-pill"><span class="status-pill-label">💹 株価</span><span class="status-pill-val" style="color:var(--gold)">${fmt(sharePrice)}</span></div>
       </div>
@@ -3977,29 +4011,71 @@ async function renderCompanyDashboard(company, el) {
         </button>
       </div>
 
-      <!-- 設備・アップグレード -->
+      <!-- 設備・アップグレード（折りたたみ） -->
       <div class="company-stat-card">
         <div class="cstat-label" style="margin-bottom:12px;">🔧 設備・アップグレード</div>
-        ${COMPANY_UPGRADES.map(u => {
-          const owned = c.upgrades?.[u.id];
-          const prereqOk = !u.requires || c.upgrades?.[u.requires];
-          const isEquip = u.equipLevel > 0;
-          const levelOk = !isEquip || (c.equipLevel||0) === u.equipLevel - 1;
-          const canBuy = !owned && prereqOk && levelOk && (state.userData?.cash||0) >= u.cost;
-          const blocked = !owned && (!prereqOk || !levelOk);
-          const noMoney = !owned && prereqOk && levelOk && (state.userData?.cash||0) < u.cost;
-          let hint = '';
-          if (!prereqOk) hint = `⛔ 要: ${upgradeNames[u.requires]||u.requires}`;
-          else if (!levelOk) hint = `⛔ 設備Lv${u.equipLevel-1}が必要`;
-          else if (noMoney) hint = `💸 資金不足 (${fmt(u.cost)}必要)`;
-          return `<button class="company-action-btn" style="margin-bottom:8px;${owned?'border-color:var(--green);opacity:.7;cursor:default':''}${blocked||noMoney?'opacity:.5;cursor:not-allowed':''}"
-            ${canBuy?`onclick="buyUpgrade('${u.id}')"`:'disabled'}>
-            <div class="cab-icon">${u.icon}</div>
-            <div class="cab-name">${u.name}${owned?' ✓':''}</div>
-            <div class="cab-cost">${owned?'導入済み':fmt(u.cost)}</div>
-            <div class="cab-effect">${owned?u.effect:hint||u.effect}</div>
-          </button>`;
-        }).join('')}
+
+        ${(() => {
+          // 設備強化セクション
+          const equipItems = COMPANY_UPGRADES.filter(u => u.equipLevel > 0);
+          const mktItems   = COMPANY_UPGRADES.filter(u => u.mktLevel > 0);
+          const otherItems = COMPANY_UPGRADES.filter(u => !u.equipLevel && !u.mktLevel);
+          const currentEquipLv = c.equipLevel || 0;
+          const currentMktLv   = c.mktLevel   || 0;
+
+          const buildBtn = (u) => {
+            const owned    = c.upgrades?.[u.id];
+            const prereqOk = !u.requires || c.upgrades?.[u.requires];
+            const isEquip  = u.equipLevel > 0;
+            const isMkt    = u.mktLevel   > 0;
+            const levelOk  = isEquip ? (c.equipLevel||0) === u.equipLevel - 1
+                           : isMkt   ? (c.mktLevel||0)   === u.mktLevel   - 1
+                           : true;
+            const canBuy   = !owned && prereqOk && levelOk && (state.userData?.cash||0) >= u.cost;
+            const blocked  = !owned && (!prereqOk || !levelOk);
+            const noMoney  = !owned && prereqOk && levelOk && (state.userData?.cash||0) < u.cost;
+            let hint = '';
+            if (!prereqOk) hint = '⛔ 前のレベルが必要';
+            else if (!levelOk) hint = '⛔ 順番に強化してください';
+            else if (noMoney) hint = '💸 資金不足 (' + fmt(u.cost) + '必要)';
+            return '<button class="company-action-btn" style="margin-bottom:8px;' + (owned?'border-color:var(--green);opacity:.7;cursor:default':'') + (blocked||noMoney?'opacity:.5;cursor:not-allowed':'') + '"'
+              + (canBuy ? ' onclick="buyUpgrade(\'' + u.id + '\')"' : ' disabled') + '>'
+              + '<div class="cab-icon">' + u.icon + '</div>'
+              + '<div class="cab-name">' + u.name + (owned?' ✓':'') + '</div>'
+              + '<div class="cab-cost">' + (owned?'導入済み':fmt(u.cost)) + '</div>'
+              + '<div class="cab-effect">' + (owned?u.effect:hint||u.effect) + '</div>'
+              + '</button>';
+          };
+
+          const renderSection = (id, label, items, currentLv, maxLv) => {
+            const ownedCount = items.filter(u => c.upgrades?.[u.id]).length;
+            const meta = 'Lv ' + currentLv + ' / ' + maxLv;
+            return '<div class="upg-section" id="upg-' + id + '">'
+              + '<div class="upg-section-header" onclick="toggleUpgSection(\'' + id + '\')">'
+              + '<span><span class="upg-section-title">' + label + '</span>'
+              + '<span class="upg-section-meta">(' + meta + ' · 導入済み ' + ownedCount + '/' + items.length + ')</span></span>'
+              + '<span class="upg-chevron">▼</span>'
+              + '</div>'
+              + '<div class="upg-section-body">' + items.map(buildBtn).join('') + '</div>'
+              + '</div>';
+          };
+
+          const renderOtherSection = (id, label, items) => {
+            const ownedCount = items.filter(u => c.upgrades?.[u.id]).length;
+            return '<div class="upg-section" id="upg-' + id + '">'
+              + '<div class="upg-section-header" onclick="toggleUpgSection(\'' + id + '\')">'
+              + '<span><span class="upg-section-title">' + label + '</span>'
+              + '<span class="upg-section-meta">(導入済み ' + ownedCount + '/' + items.length + ')</span></span>'
+              + '<span class="upg-chevron">▼</span>'
+              + '</div>'
+              + '<div class="upg-section-body">' + items.map(buildBtn).join('') + '</div>'
+              + '</div>';
+          };
+
+          return renderSection('equip', '⚙️ 設備強化', equipItems, currentEquipLv, 10)
+               + renderSection('mkt',   '📣 マーケティング', mktItems, currentMktLv, 10)
+               + renderOtherSection('other', '🔩 その他強化', otherItems);
+        })()}
       </div>
     </div>
 
