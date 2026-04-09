@@ -782,21 +782,30 @@ function initPrices(savedPrices, savedHistory) {
   STOCKS.forEach(s => {
     const p = savedPrices?.[s.ticker] || s.base;
     state.prices[s.ticker] = p;
-    state.priceHistory[s.ticker] = (savedHistory?.[s.ticker]?.length >= 2)
-      ? savedHistory[s.ticker]
-      : Array(10).fill(p);
+    const hist = savedHistory?.[s.ticker];
+    if (hist && hist.length >= 2) {
+      state.priceHistory[s.ticker] = hist;
+    } else if (hist && hist.length === 1) {
+      state.priceHistory[s.ticker] = Array(10).fill(hist[0]);
+    } else {
+      state.priceHistory[s.ticker] = Array(10).fill(p);
+    }
   });
 }
 
 // 離脱時にFirestoreへ現在状態を保存
 async function saveSession() {
   if (!state.user || !state.userData) return;
-  const prices = {};
-  STOCKS.forEach(s => { prices[s.ticker] = state.prices[s.ticker]; });
+  const prices = {}, history = {};
+  STOCKS.forEach(s => {
+    prices[s.ticker] = state.prices[s.ticker];
+    history[s.ticker] = (state.priceHistory[s.ticker] || []).slice(-30);
+  });
   try {
     await updateDoc(doc(db,'users',state.user.uid), {
       lastSeen: Date.now(),
       lastPrices: prices,
+      lastHistory: history,
       cash: state.userData.cash,
     });
   } catch(e) {}
@@ -818,16 +827,25 @@ function applyOfflineProgress(userData) {
 
   // 株価を経過ティック分シミュレート
   const savedPrices = userData.lastPrices || {};
+  const savedHistory = userData.lastHistory || {};
   STOCKS.forEach(s => {
     let price = savedPrices[s.ticker] || s.base;
+    const existingHistory = (savedHistory[s.ticker] && savedHistory[s.ticker].length >= 2)
+      ? [...savedHistory[s.ticker]]
+      : Array(10).fill(price);
     let volatility = skills.analyst ? 0.05 : 0.03;
+    const sampleEvery = Math.max(1, Math.floor(applyTicks / 30));
     for (let i = 0; i < applyTicks; i++) {
       let change = price * (Math.random() * volatility * 2 - volatility);
       if (skills.risk_mgr && change < 0) change = Math.max(change, -price * 0.01);
       price = Math.round(Math.max(s.base * 0.3, Math.min(s.base * 3, price + change)));
+      if (i % sampleEvery === 0) {
+        existingHistory.push(price);
+        if (existingHistory.length > 30) existingHistory.shift();
+      }
     }
     state.prices[s.ticker] = price;
-    state.priceHistory[s.ticker] = Array(10).fill(price);
+    state.priceHistory[s.ticker] = existingHistory;
   });
 
   // 家賃収入を経過ティック分加算
