@@ -1381,9 +1381,8 @@ function tickPrices() {
   const items = state.userData?.items || {};
   let cashDelta = 0;
 
-  // 家賃収入・配当は1分ごと（12ティック = 60秒）
-  if (!window._tickCount) window._tickCount = 0;
-  if (window._tickCount % 12 === 0) {
+  // 家賃収入・配当は1分ごと（12ティック = 60秒）、初回は除く
+  if (window._tickCount > 0 && window._tickCount % 12 === 0) {
     REAL_ESTATES.forEach(re => {
       const count = realestate[re.id] || 0;
       if (count > 0) cashDelta += re.income * count;
@@ -1416,9 +1415,9 @@ function tickPrices() {
     state.userData.cash += cashDelta;
   }
 
-  // 5ティックごとに株価・履歴・現金をまとめて保存
-  window._tickCount++;
-  if (window._tickCount % 5 === 0 && state.user && state.userData) {
+  // 毎ティック株価・履歴・現金をFirestoreに保存（再読み込み対策）
+  window._tickCount = (window._tickCount || 0) + 1;
+  if (state.user && state.userData) {
     const lp = {}, lh = {};
     STOCKS.forEach(s => {
       lp[s.ticker] = state.prices[s.ticker];
