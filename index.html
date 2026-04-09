@@ -1254,9 +1254,9 @@ function calcNextPrice(ticker, currentPrice, base, volatility, skills) {
   if (meta.trend === 'bull') dirBias = +volatility * 0.6;
   else if (meta.trend === 'bear') dirBias = -volatility * 0.6;
 
-  // ── 3. 平均回帰力（基準値への引力）──
-  const deviation = (currentPrice - base) / base; // -1.0 ~ +2.0 程度
-  const meanReversion = -deviation * 0.012;        // ずれが大きいほど引っ張る
+  // ── 3. 平均回帰力（無効化中）──
+  const deviation = (currentPrice - base) / base;
+  const meanReversion = 0;
 
   // ── 4. 純粋ランダム成分 ──
   const rand = (Math.random() * volatility * 2 - volatility);
@@ -1419,41 +1419,80 @@ const EVENT_PROB = 0.015;
 const eventLog = [];
 
 function maybeFireEvent() {
-  if (Math.random() > EVENT_PROB) return;
-
-  // 重み付き抽選
+  // 全体イベント判定（確率そのまま）
   const totalW = EVENTS.reduce((s, e) => s + e.w, 0);
-  let rnd = Math.random() * totalW;
-  let ev = EVENTS[EVENTS.length - 1];
-  for (const e of EVENTS) { rnd -= e.w; if (rnd <= 0) { ev = e; break; } }
+  if (Math.random() < EVENT_PROB) {
+    let rnd = Math.random() * totalW;
+    let ev = EVENTS[EVENTS.length - 1];
+    for (const e of EVENTS) { rnd -= e.w; if (rnd <= 0) { ev = e; break; } }
 
-  let targetTicker = null;
-
-  if (ev.target === 'single') {
-    const s = STOCKS[Math.floor(Math.random() * STOCKS.length)];
-    targetTicker = s.ticker;
-    const cur = state.prices[targetTicker];
-    const next = Math.round(clamp(cur * ev.mult, s.base * 0.1, s.base * 3));
-    state.prices[targetTicker] = next;
-    const h = state.priceHistory[targetTicker];
-    h.push(next); if (h.length > 30) h.shift();
-  } else {
-    STOCKS.forEach(s => {
-      const cur = state.prices[s.ticker];
-      const next = Math.round(clamp(cur * ev.mult, s.base * 0.1, s.base * 3));
-      state.prices[s.ticker] = next;
-      const h = state.priceHistory[s.ticker];
+    let targetTicker = null;
+    if (ev.target === 'single') {
+      // 株価が低いほど選ばれやすい重み付き抽選
+      const weights = STOCKS.map(s => {
+        const ratio = state.prices[s.ticker] / s.base; // 1.0が基準
+        // 基準値の50%以下 → 重み4倍、100%以下 → 重み2倍、200%以上 → 重み0.3倍
+        if (ratio <= 0.5) return 4.0;
+        if (ratio <= 1.0) return 2.0 / ratio;
+        return Math.max(0.3, 1.0 / ratio);
+      });
+      const totalWeight = weights.reduce((a, b) => a + b, 0);
+      let pick = Math.random() * totalWeight;
+      let chosen = STOCKS[STOCKS.length - 1];
+      for (let i = 0; i < STOCKS.length; i++) {
+        pick -= weights[i];
+        if (pick <= 0) { chosen = STOCKS[i]; break; }
+      }
+      targetTicker = chosen.ticker;
+      const cur = state.prices[targetTicker];
+      const next = Math.round(clamp(cur * ev.mult, chosen.base * 0.1, chosen.base * 3));
+      state.prices[targetTicker] = next;
+      const h = state.priceHistory[targetTicker];
       h.push(next); if (h.length > 30) h.shift();
-    });
+    } else {
+      STOCKS.forEach(s => {
+        const cur = state.prices[s.ticker];
+        const next = Math.round(clamp(cur * ev.mult, s.base * 0.1, s.base * 3));
+        state.prices[s.ticker] = next;
+        const h = state.priceHistory[s.ticker];
+        h.push(next); if (h.length > 30) h.shift();
+      });
+    }
+
+    const msg = ev.tmpl(targetTicker || '');
+    const logEntry = { label: ev.label, msg, type: ev.type, time: Date.now(), ticker: targetTicker };
+    eventLog.unshift(logEntry);
+    if (eventLog.length > 30) eventLog.pop();
+    showEventNotif(ev.label, msg, ev.type);
+    renderEventLog();
+    return;
   }
 
-  const msg = ev.tmpl(targetTicker || '');
-  const logEntry = { label: ev.label, msg, type: ev.type, time: Date.now(), ticker: targetTicker };
-  eventLog.unshift(logEntry);
-  if (eventLog.length > 30) eventLog.pop();
+  // 株価が低い銘柄への個別イベント判定（追加チェック）
+  // 基準値の60%以下の銘柄は毎ティック2%の確率で好イベント発生
+  STOCKS.forEach(s => {
+    const ratio = state.prices[s.ticker] / s.base;
+    if (ratio > 0.6) return;
+    // 低ければ低いほど確率アップ（0.5以下で4%、0.4以下で6%）
+    const prob = ratio <= 0.4 ? 0.06 : ratio <= 0.5 ? 0.04 : 0.02;
+    if (Math.random() > prob) return;
 
-  showEventNotif(ev.label, msg, ev.type);
-  renderEventLog();
+    // 好イベントのみ対象
+    const goodEvents = EVENTS.filter(e => e.type === 'good' && e.target === 'single');
+    const ev = goodEvents[Math.floor(Math.random() * goodEvents.length)];
+    const cur = state.prices[s.ticker];
+    const next = Math.round(clamp(cur * ev.mult, s.base * 0.1, s.base * 3));
+    state.prices[s.ticker] = next;
+    const h = state.priceHistory[s.ticker];
+    h.push(next); if (h.length > 30) h.shift();
+
+    const msg = ev.tmpl(s.ticker);
+    const logEntry = { label: ev.label, msg, type: ev.type, time: Date.now(), ticker: s.ticker };
+    eventLog.unshift(logEntry);
+    if (eventLog.length > 30) eventLog.pop();
+    showEventNotif(ev.label, msg, ev.type);
+    renderEventLog();
+  });
 }
 
 function showEventNotif(label, msg, type) {
@@ -2701,32 +2740,32 @@ document.getElementById('trade-modal').addEventListener('click', e=>{ if(e.targe
 
 // 不動産データ
 const REAL_ESTATES = [
-  { id:'apt',      icon:'🏠',  name:'ワンルームアパート',   cost:50000,       income:500,     max:10, desc:'小さいけど安定した家賃収入。初心者の第一歩。' },
-  { id:'house',    icon:'🏡',  name:'一戸建て住宅',         cost:150000,      income:2000,    max:7,  desc:'ファミリー向け物件。安定した収益が見込める。' },
-  { id:'condo',    icon:'🏢',  name:'マンション1室',         cost:500000,      income:8000,    max:5,  desc:'都市部の人気物件。家賃収入も大きくなる。' },
-  { id:'tower',    icon:'🏙️', name:'タワーマンション',      cost:1500000,     income:30000,   max:3,  desc:'超高級物件。毎分3万円の不労所得！' },
-  { id:'hotel',    icon:'🏨',  name:'ブティックホテル',      cost:3000000,     income:50000,   max:1,  desc:'宿泊業で大きな収益。上位プレイヤー向け。' },
-  { id:'mall',     icon:'🛍️', name:'ショッピングセンター',  cost:50000000,    income:200000,  max:1,  desc:'年間数十億規模の商業施設。資産1億以上向け。' },
-  { id:'stadium',  icon:'🏟️', name:'スタジアム',            cost:200000000,   income:2000000, max:1,  desc:'伝説の施設。毎分200万の収益。到達できる者は一握り。' },
+  { id:'apt',      icon:'🏠',  name:'ワンルームアパート',   cost:75000,       income:250,     max:10, desc:'小さいけど安定した家賃収入。初心者の第一歩。' },
+  { id:'house',    icon:'🏡',  name:'一戸建て住宅',         cost:225000,      income:1000,    max:7,  desc:'ファミリー向け物件。安定した収益が見込める。' },
+  { id:'condo',    icon:'🏢',  name:'マンション1室',         cost:750000,      income:4000,    max:5,  desc:'都市部の人気物件。家賃収入も大きくなる。' },
+  { id:'tower',    icon:'🏙️', name:'タワーマンション',      cost:2250000,     income:15000,   max:3,  desc:'超高級物件。毎分3万円の不労所得！' },
+  { id:'hotel',    icon:'🏨',  name:'ブティックホテル',      cost:4500000,     income:25000,   max:1,  desc:'宿泊業で大きな収益。上位プレイヤー向け。' },
+  { id:'mall',     icon:'🛍️', name:'ショッピングセンター',  cost:75000000,    income:100000,  max:1,  desc:'年間数十億規模の商業施設。資産1億以上向け。' },
+  { id:'stadium',  icon:'🏟️', name:'スタジアム',            cost:300000000,   income:1000000, max:1,  desc:'伝説の施設。毎分200万の収益。到達できる者は一握り。' },
 ];
 
 // スキルデータ
 const SKILLS = [
-  { id:'analyst',  icon:'🔍', name:'株価アナリスト',   cost:80000,  effect:'+5% 変動幅拡大（チャンス増加）',  desc:'相場の動きを先読みする力が身につく。株価の変動幅が5%に拡大し、大きな利益チャンスが増える。', tag:'PASSIVE' },
-  { id:'risk_mgr', icon:'🛡️', name:'リスク管理術',    cost:60000,  effect:'下落幅を-1%に抑制',               desc:'損失を最小化するテクニック。株価の下落幅が最大1%に抑えられる。', tag:'PASSIVE' },
-  { id:'insider',  icon:'📡', name:'情報収集スキル',   cost:120000, effect:'次の変動方向をヒント表示',         desc:'マーケット画面に「↑上がりそう/↓下がりそう」のヒントが表示される。', tag:'INFO' },
-  { id:'leverage', icon:'⚡', name:'レバレッジ取引',   cost:200000, effect:'取引額 1.5倍の損益',              desc:'同じ取引でも利益・損失が1.5倍になる諸刃の剣スキル。', tag:'BOOST' },
-  { id:'dividend', icon:'💹', name:'配当受取スキル',   cost:100000, effect:'保有株から毎ティック配当収入',      desc:'保有株数×10円が毎ティック自動で入ってくる。', tag:'INCOME' },
+  { id:'analyst',  icon:'🔍', name:'株価アナリスト',   cost:120000, effect:'+5% 変動幅拡大（チャンス増加）',  desc:'相場の動きを先読みする力が身につく。株価の変動幅が5%に拡大し、大きな利益チャンスが増える。', tag:'PASSIVE' },
+  { id:'risk_mgr', icon:'🛡️', name:'リスク管理術',    cost:90000,  effect:'下落幅を-1%に抑制',               desc:'損失を最小化するテクニック。株価の下落幅が最大1%に抑えられる。', tag:'PASSIVE' },
+  { id:'insider',  icon:'📡', name:'情報収集スキル',   cost:180000, effect:'次の変動方向をヒント表示',         desc:'マーケット画面に「↑上がりそう/↓下がりそう」のヒントが表示される。', tag:'INFO' },
+  { id:'leverage', icon:'⚡', name:'レバレッジ取引',   cost:300000, effect:'取引額 1.5倍の損益',              desc:'同じ取引でも利益・損失が1.5倍になる諸刃の剣スキル。', tag:'BOOST' },
+  { id:'dividend', icon:'💹', name:'配当受取スキル',   cost:150000, effect:'保有株から毎ティック配当収入',      desc:'保有株数×10円が毎ティック自動で入ってくる。', tag:'INCOME' },
 ];
 
 // アイテムデータ
 const ITEMS = [
   { id:'coffee',   icon:'☕', name:'缶コーヒー',         cost:500,    effect:'元気回復（見た目のみ）', desc:'疲れたトレーダーの必需品。ゲーム的な効果はないけど雰囲気が出る。', consumable: true },
   { id:'news',     icon:'📰', name:'経済新聞1ヶ月分',   cost:3000,   effect:'株価ヒント10回分',       desc:'次の価格変動の方向が10回だけ事前にわかる！', consumable: true },
-  { id:'laptop',   icon:'💻', name:'トレーディングPC',  cost:30000,  effect:'価格更新を3秒に短縮',    desc:'高性能PCで情報処理が速くなる。株価更新が5秒→3秒に！', consumable: false },
-  { id:'suit',     icon:'👔', name:'高級スーツ',         cost:50000,  effect:'称号「紳士投資家」獲得', desc:'一流投資家の証。サイドバーの名前に✨がつく。', consumable: false },
-  { id:'yacht',    icon:'⛵', name:'ヨット',             cost:500000, effect:'称号「億り人」獲得',     desc:'成功の象徴。名前に🚢がつき、ランキングで目立つ！', consumable: false },
-  { id:'timemachine',icon:'⏰',name:'タイムマシン',      cost:999999, effect:'現金を2倍にする（1回）', desc:'伝説のアイテム。購入した瞬間に現金が2倍になる！', consumable: true },
+  { id:'laptop',   icon:'💻', name:'トレーディングPC',  cost:45000,  effect:'価格更新を3秒に短縮',    desc:'高性能PCで情報処理が速くなる。株価更新が5秒→3秒に！', consumable: false },
+  { id:'suit',     icon:'👔', name:'高級スーツ',         cost:75000,  effect:'称号「紳士投資家」獲得', desc:'一流投資家の証。サイドバーの名前に✨がつく。', consumable: false },
+  { id:'yacht',    icon:'⛵', name:'ヨット',             cost:750000, effect:'称号「億り人」獲得',     desc:'成功の象徴。名前に🚢がつき、ランキングで目立つ！', consumable: false },
+  { id:'timemachine',icon:'⏰',name:'タイムマシン',      cost:1499999, effect:'現金を2倍にする（1回）', desc:'伝説のアイテム。購入した瞬間に現金が2倍になる！', consumable: true },
 ];
 
 window.switchShopTab = tab => {
