@@ -1146,6 +1146,65 @@ const STOCKS = [
   { ticker: 'SHIP', name: '太平洋海運', sector: '物流', base: 2050 },
 ];
 let state = { user: null, userData: null, prices: {}, priceHistory: {}, tradeMode: 'BUY' };
+
+// ── 株価エンジン用ステート（銘柄ごと）──
+// trend: 'normal' | 'bull' | 'bear'
+// trendLeft: 残りティック数
+// momentum: 直前の変動率（慣性）
+const stockMeta = {};
+function initStockMeta() {
+  STOCKS.forEach(s => {
+    if (!stockMeta[s.ticker]) {
+      stockMeta[s.ticker] = { trend: 'normal', trendLeft: 0, momentum: 0 };
+    }
+  });
+}
+
+// 1ティック分の株価計算（共通ロジック）
+function calcNextPrice(ticker, currentPrice, base, volatility, skills) {
+  const meta = stockMeta[ticker] || { trend: 'normal', trendLeft: 0, momentum: 0 };
+
+  // ── 1. トレンド遷移 ──
+  if (meta.trendLeft > 0) {
+    meta.trendLeft--;
+  } else {
+    // トレンド終了 → 次のトレンドを抽選
+    const r = Math.random();
+    if (r < 0.15) { meta.trend = 'bull'; meta.trendLeft = 10; }       // 15% 上昇トレンド
+    else if (r < 0.30) { meta.trend = 'bear'; meta.trendLeft = 10; }  // 15% 下落トレンド
+    else { meta.trend = 'normal'; meta.trendLeft = 0; }                // 70% 通常
+  }
+
+  // ── 2. トレンドによる方向バイアス ──
+  // bull: 上がる確率80%, bear: 20%, normal: 50%
+  let dirBias = 0;
+  if (meta.trend === 'bull') dirBias = +volatility * 0.6;
+  else if (meta.trend === 'bear') dirBias = -volatility * 0.6;
+
+  // ── 3. 平均回帰力（基準値への引力）──
+  const deviation = (currentPrice - base) / base; // -1.0 ~ +2.0 程度
+  const meanReversion = -deviation * 0.012;        // ずれが大きいほど引っ張る
+
+  // ── 4. 純粋ランダム成分 ──
+  const rand = (Math.random() * volatility * 2 - volatility);
+
+  // ── 5. モメンタム（慣性）──
+  const momentumEffect = meta.momentum * 0.25;
+
+  // ── 6. 合成して変化率を決定 ──
+  let rate = rand + dirBias + meanReversion + momentumEffect;
+
+  // リスク管理スキル: 下落幅を-1%に抑制
+  if (skills?.risk_mgr && rate < 0) rate = Math.max(rate, -0.01);
+
+  const change = currentPrice * rate;
+
+  // モメンタム更新（減衰つき慣性）
+  meta.momentum = rate * 0.4;
+
+  stockMeta[ticker] = meta;
+  return Math.round(clamp(currentPrice + change, base * 0.3, base * 3));
+}
 const fmt = n => {
   n = Math.round(n);
   const units = [
@@ -1218,12 +1277,10 @@ function applyOfflineProgress(userData) {
     const existingHistory = (state.priceHistory[s.ticker] && state.priceHistory[s.ticker].length >= 2)
       ? [...state.priceHistory[s.ticker]]
       : Array(10).fill(price);
-    let volatility = skills.analyst ? 0.05 : 0.03;
+    const volatility = skills.analyst ? 0.05 : 0.03;
     const sampleEvery = Math.max(1, Math.floor(applyTicks / 30));
     for (let i = 0; i < applyTicks; i++) {
-      let change = price * (Math.random() * volatility * 2 - volatility);
-      if (skills.risk_mgr && change < 0) change = Math.max(change, -price * 0.01);
-      price = Math.round(Math.max(s.base * 0.3, Math.min(s.base * 3, price + change)));
+      price = calcNextPrice(s.ticker, price, s.base, volatility, skills);
       if (i % sampleEvery === 0) {
         existingHistory.push(price);
         if (existingHistory.length > 30) existingHistory.shift();
@@ -1395,12 +1452,8 @@ function tickPrices() {
 
   STOCKS.forEach(s => {
     const prev = state.prices[s.ticker];
-    let volatility = 0.03; // ±3% デフォルト
-    if (skills.analyst) volatility = 0.05; // アナリスト: ±5%
-    let change = prev * (Math.random() * volatility * 2 - volatility);
-    // リスク管理スキル: 下落幅を-1%に抑制
-    if (skills.risk_mgr && change < 0) change = Math.max(change, -prev * 0.01);
-    const next = Math.round(clamp(prev + change, s.base * 0.3, s.base * 3));
+    const volatility = skills.analyst ? 0.05 : 0.03;
+    const next = calcNextPrice(s.ticker, prev, s.base, volatility, skills);
     state.prices[s.ticker] = next;
     const h = state.priceHistory[s.ticker];
     h.push(next);
@@ -1501,6 +1554,7 @@ onAuthStateChanged(auth, async user => {
 
     // まず保存済みの株価・チャートでstateを初期化
     initPrices(state.userData.lastPrices, state.userData.lastHistory);
+    initStockMeta();
 
     // オフライン中の経過を計算（initPrices後に呼ぶことでstateに追記される）
     applyOfflineProgress(state.userData);
