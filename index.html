@@ -1495,14 +1495,7 @@ onAuthStateChanged(auth, async user => {
     };
     if (!snap.exists()) await setDoc(doc(db,'users',user.uid), { ...state.userData, createdAt: serverTimestamp() });
 
-    // 所持金リセットバージョンチェック
-    if ((state.userData.cashResetVer || 0) < CASH_RESET_VER) {
-      state.userData.cash = INITIAL_CASH;
-      state.userData.cashResetVer = CASH_RESET_VER;
-      await updateDoc(doc(db,'users',user.uid), {
-        cash: INITIAL_CASH, cashResetVer: CASH_RESET_VER
-      }).catch(()=>{});
-    }
+    // 所持金リセット機能: 無効化済み（CASH_RESET_VERを上げると再発動）
 
     // 株価リセットバージョンチェック（古いlastPricesを無効化）
     if ((state.userData.priceResetVer || 0) < PRICE_RESET_VER) {
