@@ -11,119 +11,7 @@
   --border: #2a2a3a; --green: #00e676; --red: #ff1744; --gold: #ffd740;
   --blue: #448aff; --text: #e8e8f0; --muted: #666680;
   --font-mono: 'Space Mono', monospace; --font-jp: 'Noto Sans JP', sans-serif;
-  /* ゲーム内パーツ用変数 */
-  --game-bg:    #050505;
-  --game-bg2:   #111;
-  --game-bg3:   #1a1a1a;
-  --game-bg4:   #151515;
-  --game-bg5:   #252525;
-  --game-bg6:   #000;
-  --game-border:#333;
-  --game-text:  #fff;
-  --game-muted: #888;
-  --game-muted2:#666;
-  --game-muted3:#555;
-  --cc-accent:  #0ff;
-  --cc-accent2: #f0f;
-  --cc-panel:   #050505;
-  --pk-machine: #151515;
-  --pk-slot:    #000;
-  --pk-side:    #1a1a1a;
-  --pk-item:    #252525;
-  --pk-item2:   #2f2f2f;
-  --pk-list:    #000;
 }
-
-/* ─── ライトモード ─── */
-body.light-mode {
-  --bg: #f0f2f5; --bg2: #e4e8ee; --bg3: #d8dde6; --panel: #ffffff;
-  --border: #c8cdd8; --green: #00a152; --red: #d50000; --gold: #b8860b;
-  --blue: #1a6ef5; --text: #1a1a2e; --muted: #6b7280;
-  /* ゲーム内パーツ（ライト） */
-  --game-bg:    #f5f5f5;
-  --game-bg2:   #ebebeb;
-  --game-bg3:   #e0e0e0;
-  --game-bg4:   #f0f0f0;
-  --game-bg5:   #e8e8e8;
-  --game-bg6:   #fafafa;
-  --game-border:#bbb;
-  --game-text:  #1a1a2e;
-  --game-muted: #666;
-  --game-muted2:#888;
-  --game-muted3:#999;
-  --cc-accent:  #0088bb;
-  --cc-accent2: #9900cc;
-  --cc-panel:   #f5f5f5;
-  --pk-machine: #f0f0f0;
-  --pk-slot:    #e8e8e8;
-  --pk-side:    #f5f5f5;
-  --pk-item:    #ececec;
-  --pk-item2:   #e0e0e0;
-  --pk-list:    #f0f0f0;
-}
-
-/* ─── チンチロ ライトモード ─── */
-body.light-mode .cc-panel { background: var(--cc-panel); border-color: var(--cc-accent); box-shadow: 0 0 15px rgba(0,136,187,.08); }
-body.light-mode .cc-title { color: var(--cc-accent); border-bottom-color: var(--cc-accent); }
-body.light-mode .cc-sub-box { border-color: var(--cc-accent); }
-body.light-mode #cc-canvas-wrap { border-color: var(--cc-accent); background: radial-gradient(circle, #dde, #ccd); }
-body.light-mode #cc-msg { color: var(--gold); text-shadow: 0 0 10px rgba(184,134,11,.4); }
-body.light-mode #cc-betInput { background: #fff; border-color: var(--cc-accent); color: var(--cc-accent); }
-body.light-mode .cc-main-btn { background: var(--cc-accent); color: #fff; }
-body.light-mode .cc-item-btn { background: #f0f0f0; border-color: var(--cc-accent2); color: var(--game-text); }
-body.light-mode .cc-item-btn.owned { border-color: var(--gold); color: var(--gold); }
-body.light-mode .cc-item-btn.equipped { border-color: var(--cc-accent); color: var(--cc-accent); background: #e0f4ff; box-shadow: inset 0 0 8px rgba(0,136,187,.2); }
-body.light-mode .cc-can-claim { background: var(--cc-accent) !important; color: #fff !important; }
-body.light-mode .cc-news-bar { background: #f0f0f0; border-color: var(--cc-accent); }
-body.light-mode .cc-news-label { background: var(--cc-accent); color: #fff; }
-body.light-mode #cc-news-ticker-text { color: var(--cc-accent); }
-body.light-mode .cc-cyber-btn-s { background: #f0f0f0; border-color: var(--game-border); color: var(--game-text); }
-body.light-mode .cc-debt-display { color: var(--red); }
-body.light-mode .cc-money-display { text-shadow: none; }
-body.light-mode #cc-admin-overlay { background: rgba(255,255,255,.92); }
-body.light-mode #page-chinchiro { color: var(--game-text); }
-
-/* ─── パチンコ ライトモード ─── */
-body.light-mode #pk-machine { background: var(--pk-machine); border-color: var(--game-border); color: var(--game-text); }
-body.light-mode #pk-kakuhen-lamp { background: var(--game-bg2); color: var(--game-text); }
-body.light-mode #pk-slot-container { background: var(--pk-slot); border-color: #bbb; }
-body.light-mode #pk-combo-display { color: var(--cc-accent2); }
-/* パチンコ追加ライトモード */
-body.light-mode .pk-rank-item { border-bottom-color: #ccc; color: var(--game-text); }
-body.light-mode .pk-mission-item { border-bottom-color: #ccc; color: var(--game-muted); }
-body.light-mode .pk-mission-item.pk-done { color: #007a00; }
-body.light-mode .pk-mission-item.pk-claimable { color: #664400; background: rgba(0,180,0,.06); border-left-color: #007a00; }
-body.light-mode .pk-mission-reward { color: var(--game-muted2); }
-body.light-mode #pk-news-ticker-text { color: var(--cc-accent); }
-body.light-mode .pk-news-bar { background: #f0f0f0; border-color: var(--cc-accent); }
-body.light-mode .pk-news-label { background: var(--cc-accent); color: #fff; }
-body.light-mode .pk-modal { background: rgba(0,0,0,.5); }
-body.light-mode .pk-modal-content { background: #fff; border-color: #00a152; color: var(--game-text); }
-body.light-mode #cc-admin-overlay { background: rgba(255,255,255,.92); color: var(--game-text); }
-body.light-mode .pk-panel-title { color: var(--game-text); }
-body.light-mode .pk-shop-cat { color: var(--game-muted2); }
-body.light-mode #pk-canvas { background: #ddd; border-color: #bbb; }
-body.light-mode #pk-stock-lamps { color: var(--game-text); }
-body.light-mode #pk-stats { color: var(--game-text); }
-body.light-mode #pk-debt-panel { background: var(--game-bg2); border-color: var(--game-border); color: var(--game-text); }
-body.light-mode #pk-debt-panel.pk-in-debt { border-color: var(--red); background: #fff0f0; }
-body.light-mode #pk-debt-panel-amount { color: var(--game-muted3); }
-body.light-mode #pk-debt-panel.pk-in-debt #pk-debt-panel-amount { color: var(--red); }
-body.light-mode #pk-debt-panel-controls input { background: #fff; border-color: var(--game-border); color: var(--game-text); }
-body.light-mode #pk-side-panel { background: var(--pk-side); border-color: var(--game-border); color: var(--game-text); }
-body.light-mode .pk-panel-title { border-bottom-color: var(--game-border); color: var(--game-text); }
-body.light-mode .pk-shop-cat { color: var(--game-muted2); }
-body.light-mode .pk-shop-item { background: var(--pk-item); border-color: var(--game-border); color: var(--game-text); }
-body.light-mode .pk-shop-item:hover { background: var(--pk-item2); }
-body.light-mode .pk-shop-item.pk-equipped { border-color: var(--cc-accent); background: #e0f4ff; }
-body.light-mode .pk-shop-item-desc { color: var(--game-muted); }
-body.light-mode .pk-list-container { background: var(--pk-list); color: var(--game-text); }
-body.light-mode #pk-buy-balls-btn { background: #ddd; color: var(--game-text); }
-body.light-mode #pk-shootBtn { color: #fff; }
-body.light-mode #page-pachinko { color: var(--game-text); }
-
-/* ─── トランジション ─── */
-*, *::before, *::after { transition: background-color .25s, border-color .25s, color .15s, box-shadow .25s; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: var(--font-jp); min-height: 100vh; overflow-x: hidden; }
 body::before {
@@ -182,8 +70,6 @@ body::after {
 .nav-icon { font-size: 15px; }
 .logout-btn { margin: 0 20px; padding: 9px; background: transparent; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: all .2s; letter-spacing: 1px; }
 .logout-btn:hover { border-color: var(--red); color: var(--red); }
-.theme-toggle-btn { margin: 0 20px 8px; padding: 9px; width: calc(100% - 40px); background: transparent; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; cursor: pointer; letter-spacing: 1px; text-align: center; }
-.theme-toggle-btn:hover { border-color: var(--blue); color: var(--blue); }
 .main-content { flex: 1; overflow-y: auto; padding: 24px; }
 .page { display: none; } .page.active { display: block; }
 .page-title { font-family: var(--font-mono); font-size: 16px; font-weight: 700; letter-spacing: 2px; margin-bottom: 20px; color: var(--text); }
@@ -691,7 +577,6 @@ body::after {
       <div class="nav-item" data-page="pachinko" onclick="navTo('pachinko')"><span class="nav-icon">🎰</span> パチンコ</div>
       <div class="nav-item" data-page="company" onclick="navTo('company')"><span class="nav-icon">🏭</span> 起業・経営</div>
     </nav>
-    <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()">🌙 ダークモード</button>
     <button class="logout-btn" onclick="doLogout()">ログアウト</button>
   </aside>
 
@@ -1740,24 +1625,6 @@ window.doLogout = async () => {
   await saveSession();
   await signOut(auth);
 };
-
-window.toggleTheme = () => {
-  const isLight = document.body.classList.toggle('light-mode');
-  localStorage.setItem('bullrun_theme', isLight ? 'light' : 'dark');
-  const btn = document.getElementById('theme-toggle-btn');
-  if (btn) btn.textContent = isLight ? '☀️ ライトモード' : '🌙 ダークモード';
-};
-
-// ページ読み込み時に保存済みテーマを適用
-(function () {
-  if (localStorage.getItem('bullrun_theme') === 'light') {
-    document.body.classList.add('light-mode');
-    document.addEventListener('DOMContentLoaded', () => {
-      const btn = document.getElementById('theme-toggle-btn');
-      if (btn) btn.textContent = '☀️ ライトモード';
-    });
-  }
-})();
 window.doGoogleLogin = async () => {
   try {
     const c = await signInWithPopup(auth, new GoogleAuthProvider());
@@ -2513,6 +2380,29 @@ window.switchAuctionTab = tab => {
 // navToからオークションを開くとき
 function initAuctionPage() {
   switchAuctionTab('list');
+  cleanupExpiredAuctions();
+}
+
+// 期限切れオークションをFirestoreから一括削除（ログイン時・ページ表示時に実行）
+async function cleanupExpiredAuctions() {
+  try {
+    const snap = await getDocs(query(collection(db, 'auctions'), limit(100)));
+    const now = Date.now();
+    const promises = [];
+    snap.forEach(d => {
+      const a = d.data();
+      if (a.ended || now > a.endAt) {
+        // 落札処理が必要なもの（自分が出品者かつ未処理）
+        const aData = { id: d.id, ...a };
+        if (!a.ended && a.sellerUid === state.user?.uid) {
+          promises.push(checkAuctionEnd(aData).then(() => deleteDoc(d.ref).catch(() => {})));
+        } else {
+          promises.push(deleteDoc(d.ref).catch(() => {}));
+        }
+      }
+    });
+    await Promise.all(promises);
+  } catch(e) { console.warn('cleanupExpiredAuctions:', e.message); }
 }
 
 // 画像処理（リサイズ・Base64変換）
@@ -2601,13 +2491,38 @@ function startAuctionListener() {
   const el = document.getElementById('auction-list-content');
   el.innerHTML = '<div class="auction-loading">読み込み中...</div>';
 
-  const q = query(collection(db, 'auctions'), orderBy('createdAt', 'desc'), limit(30));
+  const q = query(collection(db, 'auctions'), orderBy('createdAt', 'desc'), limit(50));
   _auctionUnsub = onSnapshot(q, snap => {
+    const now = Date.now();
     const auctions = [];
-    snap.forEach(d => auctions.push({ id: d.id, ...d.data() }));
+    const toDelete = [];
+
+    snap.forEach(d => {
+      const a = { id: d.id, ...d.data() };
+      const isExpired = a.ended || now > a.endAt;
+      if (isExpired) {
+        // 終了済み → 削除候補（落札処理も済ませてから消す）
+        toDelete.push({ ref: d.ref, data: a });
+      } else {
+        auctions.push(a);
+      }
+    });
+
+    // 終了済みを一覧に出さない
     renderAuctionList(auctions);
-    // 終了チェック
-    auctions.forEach(a => { if (!a.ended) checkAuctionEnd(a); });
+
+    // 終了チェック（落札処理）→ その後Firestoreから削除
+    toDelete.forEach(({ ref, data: a }) => {
+      if (!a.ended) {
+        // まだ ended:true にされていない → 落札処理 → 削除
+        checkAuctionEnd(a).then(() => {
+          deleteDoc(ref).catch(() => {});
+        });
+      } else {
+        // 既に ended:true → そのまま削除
+        deleteDoc(ref).catch(() => {});
+      }
+    });
   }, err => {
     el.innerHTML = '<div style="color:var(--red)">エラー: ' + err.message + '</div>';
   });
@@ -2632,23 +2547,23 @@ function renderAuctionList(auctions) {
   Object.values(_auctionTimers).forEach(clearInterval);
   _auctionTimers = {};
 
-  if (!auctions.length) {
+  // 念のため終了済みを除外（リスナー側でも除外済みだが二重チェック）
+  const active = auctions.filter(a => !a.ended && Date.now() <= a.endAt);
+
+  if (!active.length) {
     el.innerHTML = '<div class="auction-loading">出品中の商品はありません。最初に出品してみよう！</div>';
     return;
   }
 
   let html = '<div class="auction-grid">';
-  auctions.forEach(a => {
-    const ended = a.ended || Date.now() > a.endAt;
+  active.forEach(a => {
     const imgHtml = a.image
       ? `<div class="auction-card-img"><img src="${a.image}" alt="${a.title}"></div>`
       : `<div class="auction-card-img">📦</div>`;
-    const cardOnclick = ended ? '' : 'onclick="openAuctionModal(\'' + a.id + '\')"';
-    const timerHtml = ended
-      ? '<span style="color:var(--muted)">終了</span>'
-      : '<span class="auction-timer' + ((a.endAt - Date.now()) < 300000 ? ' urgent' : '') + '" id="timer-' + a.id + '">' + formatRemaining(a.endAt) + '</span>';
+    const rem = a.endAt - Date.now();
+    const timerHtml = '<span class="auction-timer' + (rem < 300000 ? ' urgent' : '') + '" id="timer-' + a.id + '">' + formatRemaining(a.endAt) + '</span>';
     const bidderHtml = a.currentBidderName ? '最高入札: ' + a.currentBidderName.substring(0,8) : '入札なし';
-    html += '<div class="auction-card ' + (ended?'ended':'') + '" ' + cardOnclick + '>'
+    html += '<div class="auction-card" onclick="openAuctionModal(\'' + a.id + '\')">'
       + imgHtml
       + '<div class="auction-card-body">'
       + '<div class="auction-card-title">' + a.title + '</div>'
@@ -2665,14 +2580,14 @@ function renderAuctionList(auctions) {
   el.innerHTML = html;
 
   // タイマー更新
-  auctions.filter(a => !a.ended && Date.now() <= a.endAt).forEach(a => {
+  active.forEach(a => {
     _auctionTimers[a.id] = setInterval(() => {
-      const el = document.getElementById('timer-' + a.id);
-      if (!el) { clearInterval(_auctionTimers[a.id]); return; }
+      const timerEl = document.getElementById('timer-' + a.id);
+      if (!timerEl) { clearInterval(_auctionTimers[a.id]); return; }
       const rem = a.endAt - Date.now();
-      if (rem <= 0) { el.textContent = '終了'; clearInterval(_auctionTimers[a.id]); return; }
-      el.textContent = formatRemaining(a.endAt);
-      el.className = 'auction-timer' + (rem < 300000 ? ' urgent' : '');
+      if (rem <= 0) { clearInterval(_auctionTimers[a.id]); return; } // リスナーが自動削除する
+      timerEl.textContent = formatRemaining(a.endAt);
+      timerEl.className = 'auction-timer' + (rem < 300000 ? ' urgent' : '');
     }, 1000);
   });
 }
@@ -2859,12 +2774,28 @@ async function renderMyAuctions() {
       where('sellerUid', '==', state.user.uid),
       orderBy('createdAt', 'desc'), limit(20));
     const snap = await getDocs(q);
-    if (snap.empty) { el.innerHTML = '<div class="auction-loading">出品履歴がありません</div>'; return; }
 
-    let html = '';
+    // 終了済みをFirestoreから削除しつつ、アクティブなものだけ表示
+    const active = [];
+    const deletePromises = [];
     snap.forEach(d => {
       const a = { id: d.id, ...d.data() };
-      const ended = a.ended || Date.now() > a.endAt;
+      const isExpired = a.ended || Date.now() > a.endAt;
+      if (isExpired) {
+        deletePromises.push(deleteDoc(d.ref).catch(() => {}));
+      } else {
+        active.push(a);
+      }
+    });
+    await Promise.all(deletePromises);
+
+    if (!active.length) {
+      el.innerHTML = '<div class="auction-loading">出品中の商品はありません</div>';
+      return;
+    }
+
+    let html = '';
+    active.forEach(a => {
       const imgHtml = a.image
         ? `<div class="auction-mine-img"><img src="${a.image}"></div>`
         : `<div class="auction-mine-img">📦</div>`;
@@ -2873,9 +2804,9 @@ async function renderMyAuctions() {
         <div style="flex:1">
           <div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">${a.title}</div>
           <div style="font-size:12px;color:var(--gold);margin-bottom:4px">${fmt(a.currentPrice)} ${a.currentBidderName ? '(最高: '+a.currentBidderName.substring(0,8)+')' : '(入札なし)'}</div>
-          <div style="font-size:11px;color:var(--muted)">${ended ? (a.currentBidder ? '✓ 落札済み' : '流札') : '出品中 残り'+formatRemaining(a.endAt)}</div>
+          <div style="font-size:11px;color:var(--muted)">出品中 残り${formatRemaining(a.endAt)}</div>
         </div>
-        ${!ended ? '<button class="auction-cancel-btn" onclick="cancelAuction(\'' + a.id + '\')">取り消し</button>' : ''}
+        <button class="auction-cancel-btn" onclick="cancelAuction('${a.id}')">取り消し</button>
       </div>`;
     });
     el.innerHTML = html;
@@ -3709,19 +3640,15 @@ function pkSetupCanvas(){
 function pkDrawCanvas(){
   const canvas=document.getElementById('pk-canvas'); if(!canvas) return;
   const ctx=canvas.getContext('2d');
-  const isLight = document.body.classList.contains('light-mode');
   const skin=PK_ITEMS.skins.find(s=>s.id===pkActiveSkin)||PK_ITEMS.skins[0];
-  // ライトモードの標準スキンは明るい背景に差し替え
-  const bgColor = (isLight && skin.id==='s-def') ? '#e8e8e8' : skin.bg;
-  const pinColor = (isLight && skin.id==='s-def') ? '#444' : skin.pin;
-  ctx.fillStyle=bgColor; ctx.fillRect(0,0,300,320);
+  ctx.fillStyle=skin.bg; ctx.fillRect(0,0,300,320);
 
   // アウトホール（下部ハズレ穴）
-  pkOutHoles.forEach(h=>{ ctx.fillStyle=isLight?'#c44':'#300'; ctx.fillRect(h.x,h.y,h.w,h.h); });
+  pkOutHoles.forEach(h=>{ ctx.fillStyle='#300'; ctx.fillRect(h.x,h.y,h.w,h.h); });
 
   // 釘を描画
   pkPegs.forEach(p=>{
-    ctx.fillStyle=pinColor;
+    ctx.fillStyle=skin.pin;
     ctx.beginPath(); ctx.arc(p.x,p.y,2.5,0,Math.PI*2); ctx.fill();
   });
 
@@ -3770,19 +3697,13 @@ function pkDrawCanvas(){
   const cX=135+Math.sin(Date.now()/500)*60;
   // キャッチャー本体
   const cGrad=ctx.createLinearGradient(cX,305,cX,319);
-  const isMagnet = pkEquippedTool==='t-magnet';
-  if(isLight){
-    cGrad.addColorStop(0, isMagnet?'#cc00cc':'#0088bb');
-    cGrad.addColorStop(1, isMagnet?'#6600aa':'#005577');
-  } else {
-    cGrad.addColorStop(0, isMagnet?'#f0f':'#0ff');
-    cGrad.addColorStop(1, isMagnet?'#80f':'#069');
-  }
+  cGrad.addColorStop(0, pkEquippedTool==='t-magnet'?'#f0f':'#0ff');
+  cGrad.addColorStop(1, pkEquippedTool==='t-magnet'?'#80f':'#069');
   ctx.fillStyle=cGrad;
   ctx.beginPath();
   ctx.roundRect ? ctx.roundRect(cX,305,catcherW,14,3) : ctx.rect(cX,305,catcherW,14);
   ctx.fill();
-  ctx.strokeStyle=isLight?(isMagnet?'#9900cc':'#0088bb'):(isMagnet?'#fff':'#0ff');
+  ctx.strokeStyle=pkEquippedTool==='t-magnet'?'#fff':'#0ff';
   ctx.lineWidth=1;
   ctx.stroke();
 
@@ -3861,15 +3782,9 @@ function pkDrawCanvas(){
     // 玉の描画（グラデーション球）
     if(b){
       const bg=ctx.createRadialGradient(b.x-1,b.y-1,0.5,b.x,b.y,BALL_R);
-      if(isLight){
-        bg.addColorStop(0,'#ffffff');
-        bg.addColorStop(0.4,'#aaaacc');
-        bg.addColorStop(1,'#556');
-      } else {
-        bg.addColorStop(0,'#fff');
-        bg.addColorStop(0.4,'#ddd');
-        bg.addColorStop(1,'#888');
-      }
+      bg.addColorStop(0,'#fff');
+      bg.addColorStop(0.4,'#ddd');
+      bg.addColorStop(1,'#888');
       ctx.fillStyle=bg;
       ctx.beginPath(); ctx.arc(b.x,b.y,BALL_R,0,Math.PI*2); ctx.fill();
     }
