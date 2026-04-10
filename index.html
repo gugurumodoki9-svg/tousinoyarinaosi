@@ -1265,28 +1265,30 @@ function calcNextPrice(ticker, currentPrice, base, volatility, skills) {
   if (meta.trendLeft > 0) {
     meta.trendLeft--;
   } else {
-    // トレンド終了 → 次のトレンドを抽選
     const r = Math.random();
-    if (r < 0.15) { meta.trend = 'bull'; meta.trendLeft = 10; }       // 15% 上昇トレンド
-    else if (r < 0.30) { meta.trend = 'bear'; meta.trendLeft = 10; }  // 15% 下落トレンド
-    else { meta.trend = 'normal'; meta.trendLeft = 0; }                // 70% 通常
+    if (r < 0.15) { meta.trend = 'bull'; meta.trendLeft = 10; }
+    else if (r < 0.30) { meta.trend = 'bear'; meta.trendLeft = 10; }
+    else { meta.trend = 'normal'; meta.trendLeft = 0; }
   }
 
   // ── 2. トレンドによる方向バイアス ──
-  // bull: 上がる確率80%, bear: 20%, normal: 50%
-  let dirBias = 0;
-  if (meta.trend === 'bull') dirBias = +volatility * 0.6;
-  else if (meta.trend === 'bear') dirBias = -volatility * 0.6;
+  const deviation = (currentPrice - base) / base; // 基準値からの乖離率
 
-  // ── 3. 平均回帰力（基準値への引力）──
-  const deviation = (currentPrice - base) / base; // -1.0 ~ +2.0 程度
-  const meanReversion = -deviation * 0.012;        // ずれが大きいほど引っ張る
+  // 乖離が大きいほどトレンドバイアスを抑制（上限張り付き防止）
+  const trendDamp = Math.max(0, 1 - Math.abs(deviation) * 1.2);
+  let dirBias = 0;
+  if (meta.trend === 'bull') dirBias = +volatility * 0.5 * trendDamp;
+  else if (meta.trend === 'bear') dirBias = -volatility * 0.5 * trendDamp;
+
+  // ── 3. 平均回帰力（非線形：乖離が大きいほど急激に引き戻す）──
+  // deviation=0.5(+50%)で約3.5%、deviation=1.0(+100%)で約8%の引き戻し
+  const meanReversion = -deviation * (0.025 + Math.abs(deviation) * 0.04);
 
   // ── 4. 純粋ランダム成分 ──
   const rand = (Math.random() * volatility * 2 - volatility);
 
-  // ── 5. モメンタム（慣性）──
-  const momentumEffect = meta.momentum * 0.25;
+  // ── 5. モメンタム（慣性を弱めに）──
+  const momentumEffect = meta.momentum * 0.15;
 
   // ── 6. 合成して変化率を決定 ──
   let rate = rand + dirBias + meanReversion + momentumEffect;
@@ -1296,11 +1298,12 @@ function calcNextPrice(ticker, currentPrice, base, volatility, skills) {
 
   const change = currentPrice * rate;
 
-  // モメンタム更新（減衰つき慣性）
-  meta.momentum = rate * 0.4;
+  // モメンタム更新（減衰を強めて慣性を抑制）
+  meta.momentum = rate * 0.25;
 
   stockMeta[ticker] = meta;
-  return Math.round(clamp(currentPrice + change, base * 0.3, base * 3));
+  // 上限を base×2.0 に縮小（+100%が天井）
+  return Math.round(clamp(currentPrice + change, base * 0.3, base * 2.0));
 }
 const fmt = n => {
   n = Math.round(n);
@@ -1457,14 +1460,14 @@ function maybeFireEvent() {
     const s = STOCKS[Math.floor(Math.random() * STOCKS.length)];
     targetTicker = s.ticker;
     const cur = state.prices[targetTicker];
-    const next = Math.round(clamp(cur * ev.mult, s.base * 0.1, s.base * 3));
+    const next = Math.round(clamp(cur * ev.mult, s.base * 0.1, s.base * 2.0));
     state.prices[targetTicker] = next;
     const h = state.priceHistory[targetTicker];
     h.push(next); if (h.length > 30) h.shift();
   } else {
     STOCKS.forEach(s => {
       const cur = state.prices[s.ticker];
-      const next = Math.round(clamp(cur * ev.mult, s.base * 0.1, s.base * 3));
+      const next = Math.round(clamp(cur * ev.mult, s.base * 0.1, s.base * 2.0));
       state.prices[s.ticker] = next;
       const h = state.priceHistory[s.ticker];
       h.push(next); if (h.length > 30) h.shift();
