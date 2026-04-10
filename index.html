@@ -700,6 +700,7 @@ body::after {
         <button class="auction-tab active" onclick="switchAuctionTab('list')">🔨 出品一覧</button>
         <button class="auction-tab" onclick="switchAuctionTab('sell')">➕ 出品する</button>
         <button class="auction-tab" onclick="switchAuctionTab('mine')">📦 自分の出品</button>
+        <button class="auction-tab" onclick="switchAuctionTab('inventory')">🎒 落札品</button>
       </div>
 
       <!-- 出品一覧 -->
@@ -732,6 +733,10 @@ body::after {
             <label>開始価格</label>
             <input type="number" id="auction-start-price" placeholder="例: 100000" min="1">
           </div>
+          <div class="auction-field">
+            <label>即決価格（任意・この金額で即座に落札）</label>
+            <input type="number" id="auction-buynow-price" placeholder="空欄なし（設定しない場合は空欄）" min="1">
+          </div>
           <button class="auction-btn-primary" onclick="submitAuction()">出品する（1時間後に自動終了）</button>
           <div id="auction-form-msg" style="font-size:12px;margin-top:10px;min-height:16px"></div>
         </div>
@@ -740,6 +745,12 @@ body::after {
       <!-- 自分の出品 -->
       <div class="auction-section" id="auction-mine">
         <div id="auction-mine-content"><div class="auction-loading">読み込み中...</div></div>
+      </div>
+
+      <!-- 落札品インベントリ -->
+      <div class="auction-section" id="auction-inventory">
+        <div style="color:var(--muted);font-size:12px;margin-bottom:16px">落札したアイテムの一覧です。再出品も可能です。</div>
+        <div id="auction-inventory-content"><div class="auction-loading">読み込み中...</div></div>
       </div>
     </div>
 
@@ -2358,11 +2369,12 @@ let _auctionTimers = {};  // タイマーID管理
 // タブ切り替え
 window.switchAuctionTab = tab => {
   document.querySelectorAll('.auction-tab').forEach((t,i) =>
-    t.classList.toggle('active', ['list','sell','mine'][i] === tab));
+    t.classList.toggle('active', ['list','sell','mine','inventory'][i] === tab));
   document.querySelectorAll('.auction-section').forEach(s => s.classList.remove('active'));
   document.getElementById('auction-' + tab).classList.add('active');
   if (tab === 'list') startAuctionListener();
   if (tab === 'mine') renderMyAuctions();
+  if (tab === 'inventory') renderInventory();
 };
 
 // navToからオークションを開くとき
@@ -2413,6 +2425,11 @@ window.submitAuction = async () => {
   btn.disabled = true; btn.textContent = '出品中...';
 
   const endAt = Date.now() + 60 * 60 * 1000; // 1時間後
+  const buyNowPrice = parseInt(document.getElementById('auction-buynow-price').value) || null;
+  if (buyNowPrice && buyNowPrice <= startPrice) {
+    msg.style.color='var(--red)'; msg.textContent='即決価格は開始価格より高くしてください';
+    btn.disabled=false; btn.textContent='出品する（1時間後に自動終了）'; return;
+  }
   const data = {
     title, desc,
     image: window._auctionImgBase64 || null,
@@ -2426,6 +2443,7 @@ window.submitAuction = async () => {
     endAt,
     ended: false,
     bids: [],
+    buyNowPrice: buyNowPrice || null,
   };
 
   try {
@@ -2629,8 +2647,14 @@ window.placeBid = async (auctionId) => {
       bids,
     });
     msgEl.style.color = 'var(--green)';
-    msgEl.textContent = `✓ ${fmt(amount)} で入札しました！`;
-    showNotif(`🔨 ${a.title} に ${fmt(amount)} で入札！`, 'ok');
+    msgEl.textContent = '✓ ' + fmt(amount) + ' で入札しました！';
+    showNotif('🔨 ' + a.title + ' に ' + fmt(amount) + ' で入札！', 'ok');
+    // 即決価格に達した場合は即終了
+    if (a.buyNowPrice && amount >= a.buyNowPrice) {
+      await updateDoc(doc(db, 'auctions', auctionId), { ended: true });
+      showNotif('🎉 即決落札！ ' + a.title + ' を ' + fmt(amount) + ' で落札しました！', 'ok');
+      closeAuctionModal();
+    }
   } catch(e) {
     msgEl.style.color = 'var(--red)'; msgEl.textContent = 'エラー: ' + e.message;
   }
@@ -2645,18 +2669,29 @@ async function checkAuctionEnd(a) {
   try {
     await updateDoc(doc(db, 'auctions', a.id), { ended: true });
     if (a.currentBidder && a.currentBidder !== a.sellerUid) {
-      // 落札者から現金を引く
+      // 落札者から現金を引く・インベントリに追加
       const buyerSnap = await getDoc(doc(db, 'users', a.currentBidder));
       if (buyerSnap.exists()) {
         const buyerData = buyerSnap.data();
         const newBuyerCash = (Number(buyerData.cash) || 0) - a.currentPrice;
         await updateDoc(doc(db, 'users', a.currentBidder), { cash: Math.max(0, newBuyerCash) });
       }
+      // 落札品をinventoryコレクションに保存
+      await addDoc(collection(db, 'users', a.currentBidder, 'inventory'), {
+        auctionId: a.id,
+        title: a.title,
+        desc: a.desc || '',
+        image: a.image || null,
+        price: a.currentPrice,
+        sellerName: a.sellerName,
+        wonAt: Date.now(),
+        resold: false,
+      });
       // 出品者に現金を加える
       state.userData.cash += a.currentPrice;
       await updateDoc(doc(db, 'users', a.sellerUid), { cash: state.userData.cash });
       renderSidebar();
-      showNotif(`🔨 "${a.title}" が ${fmt(a.currentPrice)} で落札されました！`, 'ok');
+      showNotif('🔨 "' + a.title + '" が ' + fmt(a.currentPrice) + ' で落札されました！', 'ok');
     }
   } catch(e) {}
 }
@@ -2726,6 +2761,118 @@ window.cancelAuction = async id => {
     await deleteDoc(doc(db, 'auctions', id));
     showNotif('出品を取り消しました', 'ok');
     renderMyAuctions();
+  }
+};
+
+
+// ── インベントリ（落札品一覧）──
+async function renderInventory() {
+  const el = document.getElementById('auction-inventory-content');
+  el.innerHTML = '<div class="auction-loading">読み込み中...</div>';
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'users', state.user.uid, 'inventory'),
+      orderBy('wonAt', 'desc'), limit(50)
+    ));
+    if (snap.empty) { el.innerHTML = '<div class="auction-loading">落札品はまだありません。オークションで落札してみよう！</div>'; return; }
+    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">';
+    snap.forEach(d => {
+      const item = { id: d.id, ...d.data() };
+      const imgHtml = item.image
+        ? '<img src="' + item.image + '" style="width:100%;height:140px;object-fit:cover;border-radius:4px 4px 0 0">'
+        : '<div style="width:100%;height:140px;background:var(--bg2);border-radius:4px 4px 0 0;display:flex;align-items:center;justify-content:center;font-size:32px">📦</div>';
+      html += '<div style="background:var(--panel);border:1px solid ' + (item.resold ? 'var(--muted)' : 'var(--border)') + ';border-radius:6px;overflow:hidden;opacity:' + (item.resold ? '0.5' : '1') + '">'
+        + imgHtml
+        + '<div style="padding:14px">'
+        + '<div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">' + item.title + '</div>'
+        + '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">' + (item.desc || '') + '</div>'
+        + '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">落札: ' + fmt(item.price) + ' · from ' + (item.sellerName||'???').substring(0,8) + '</div>'
+        + '<div style="font-size:10px;color:var(--muted);margin-bottom:10px">' + new Date(item.wonAt).toLocaleString('ja-JP') + '</div>'
+        + (item.resold
+          ? '<div style="font-size:11px;color:var(--muted)">✓ 再出品済み</div>'
+          : '<button data-inv-id="' + item.id + '" data-action="resell" style="width:100%;padding:8px;background:transparent;border:1px solid var(--blue);border-radius:3px;color:var(--blue);font-size:12px;cursor:pointer">🔄 再出品する</button>'
+        )
+        + '</div></div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+
+    // 再出品ボタンのクリック処理
+    el.onclick = (e) => {
+      const btn = e.target.closest('[data-action="resell"]');
+      if (!btn) return;
+      resellFromInventory(btn.dataset.invId);
+    };
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red)">エラー: ' + e.message + '</div>';
+  }
+}
+
+// 再出品（インベントリから出品フォームに情報をコピー）
+async function resellFromInventory(invId) {
+  const snap = await getDoc(doc(db, 'users', state.user.uid, 'inventory', invId));
+  if (!snap.exists()) return;
+  const item = snap.data();
+  switchAuctionTab('sell');
+  document.getElementById('auction-title').value = item.title;
+  document.getElementById('auction-desc').value = item.desc || '';
+  if (item.image) {
+    window._auctionImgBase64 = item.image;
+    document.getElementById('auction-img-preview-wrap').innerHTML = '<img src="' + item.image + '" class="auction-img-preview">';
+  }
+  document.getElementById('auction-start-price').value = item.price;
+  // インベントリに再出品済みフラグを立てる
+  await updateDoc(doc(db, 'users', state.user.uid, 'inventory', invId), { resold: true });
+  showNotif('📋 落札品の情報をコピーしました。価格を確認して出品してください。', 'ok');
+}
+
+// 即決落札
+window.placeBidBuyNow = async (auctionId, buyNowPrice) => {
+  const msgEl = document.getElementById('auction-bid-msg');
+  if (buyNowPrice > state.userData.cash) {
+    if(msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent='現金が足りません'; }
+    showNotif('現金が足りません', 'err'); return;
+  }
+  const snap = await getDoc(doc(db, 'auctions', auctionId));
+  if (!snap.exists() || snap.data().ended) { showNotif('このオークションは終了しています', 'err'); return; }
+  const a = snap.data();
+  if (a.sellerUid === state.user.uid) { showNotif('自分の出品には入札できません', 'err'); return; }
+  try {
+    const bids = a.bids || [];
+    bids.push({ uid: state.user.uid, name: state.userData.name, amount: buyNowPrice, timestamp: Date.now(), buyNow: true });
+    await updateDoc(doc(db, 'auctions', auctionId), {
+      currentPrice: buyNowPrice,
+      currentBidder: state.user.uid,
+      currentBidderName: state.userData.name,
+      bids,
+      ended: true,
+      endAt: Date.now(),
+    });
+    // 自分の現金を引く
+    state.userData.cash -= buyNowPrice;
+    await setDoc(doc(db,'users',state.user.uid), { cash: state.userData.cash }, { merge: true });
+    // インベントリに追加
+    await addDoc(collection(db, 'users', state.user.uid, 'inventory'), {
+      auctionId,
+      title: a.title,
+      desc: a.desc || '',
+      image: a.image || null,
+      price: buyNowPrice,
+      sellerName: a.sellerName,
+      wonAt: Date.now(),
+      resold: false,
+    });
+    // 出品者に現金を加える
+    const sellerSnap = await getDoc(doc(db, 'users', a.sellerUid));
+    if (sellerSnap.exists()) {
+      const newSellerCash = (Number(sellerSnap.data().cash) || 0) + buyNowPrice;
+      await updateDoc(doc(db, 'users', a.sellerUid), { cash: newSellerCash });
+    }
+    renderSidebar();
+    showNotif('🎉 即決落札！ ' + fmt(buyNowPrice) + ' で ' + a.title + ' を落札しました！', 'ok');
+    closeAuctionModal();
+  } catch(e) {
+    showNotif('エラー: ' + e.message, 'err');
   }
 };
 
