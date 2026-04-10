@@ -1275,14 +1275,14 @@ function calcNextPrice(ticker, currentPrice, base, volatility, skills) {
   const deviation = (currentPrice - base) / base; // 基準値からの乖離率
 
   // 乖離が大きいほどトレンドバイアスを抑制（上限張り付き防止）
-  const trendDamp = Math.max(0, 1 - Math.abs(deviation) * 1.2);
+  const trendDamp = Math.max(0, 1 - Math.abs(deviation) * 0.7);
   let dirBias = 0;
   if (meta.trend === 'bull') dirBias = +volatility * 0.5 * trendDamp;
   else if (meta.trend === 'bear') dirBias = -volatility * 0.5 * trendDamp;
 
-  // ── 3. 平均回帰力（非線形：乖離が大きいほど急激に引き戻す）──
-  // deviation=0.5(+50%)で約3.5%、deviation=1.0(+100%)で約8%の引き戻し
-  const meanReversion = -deviation * (0.025 + Math.abs(deviation) * 0.04);
+  // ── 3. 平均回帰力（緩やかな非線形）──
+  // deviation=0.5(+50%)で約1.5%、deviation=1.0(+100%)で約3.5%の引き戻し
+  const meanReversion = -deviation * (0.012 + Math.abs(deviation) * 0.015);
 
   // ── 4. 純粋ランダム成分 ──
   const rand = (Math.random() * volatility * 2 - volatility);
