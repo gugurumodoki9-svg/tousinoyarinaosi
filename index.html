@@ -12,6 +12,16 @@
   --blue: #448aff; --text: #e8e8f0; --muted: #666680;
   --font-mono: 'Space Mono', monospace; --font-jp: 'Noto Sans JP', sans-serif;
 }
+/* ライトモード */
+body.light-mode {
+  --bg: #f0f2f5; --bg2: #e4e8ee; --bg3: #d8dde6; --panel: #ffffff;
+  --border: #c8cdd8; --green: #00a152; --red: #d50000; --gold: #b8860b;
+  --blue: #1a6ef5; --text: #1a1a2e; --muted: #6b7280;
+}
+body.light-mode body::before { background-image: linear-gradient(rgba(26,110,245,.03) 1px,transparent 1px), linear-gradient(90deg,rgba(26,110,245,.03) 1px,transparent 1px); }
+body.light-mode body::after  { background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px); }
+/* テーマ切り替えトランジション */
+*, *::before, *::after { transition: background-color .25s, border-color .25s, color .15s; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: var(--font-jp); min-height: 100vh; overflow-x: hidden; }
 body::before {
@@ -70,6 +80,8 @@ body::after {
 .nav-icon { font-size: 15px; }
 .logout-btn { margin: 0 20px; padding: 9px; background: transparent; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: all .2s; letter-spacing: 1px; }
 .logout-btn:hover { border-color: var(--red); color: var(--red); }
+.theme-toggle-btn { margin: 0 20px 8px; padding: 9px; background: transparent; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; cursor: pointer; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.theme-toggle-btn:hover { border-color: var(--blue); color: var(--blue); }
 .main-content { flex: 1; overflow-y: auto; padding: 24px; }
 .page { display: none; } .page.active { display: block; }
 .page-title { font-family: var(--font-mono); font-size: 16px; font-weight: 700; letter-spacing: 2px; margin-bottom: 20px; color: var(--text); }
@@ -577,6 +589,7 @@ body::after {
       <div class="nav-item" data-page="pachinko" onclick="navTo('pachinko')"><span class="nav-icon">🎰</span> パチンコ</div>
       <div class="nav-item" data-page="company" onclick="navTo('company')"><span class="nav-icon">🏭</span> 起業・経営</div>
     </nav>
+    <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()">🌙 ダークモード</button>
     <button class="logout-btn" onclick="doLogout()">ログアウト</button>
   </aside>
 
@@ -1625,6 +1638,26 @@ window.doLogout = async () => {
   await saveSession();
   await signOut(auth);
 };
+
+window.toggleTheme = () => {
+  const isLight = document.body.classList.toggle('light-mode');
+  localStorage.setItem('bullrun_theme', isLight ? 'light' : 'dark');
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = isLight ? '🌙 ダークモード' : '☀️ ライトモード';
+};
+
+// ページ読み込み時に保存済みテーマを復元
+(function() {
+  const saved = localStorage.getItem('bullrun_theme');
+  if (saved === 'light') {
+    document.body.classList.add('light-mode');
+    // ボタンはDOMが揃ってから更新
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('theme-toggle-btn');
+      if (btn) btn.textContent = '🌙 ダークモード';
+    });
+  }
+})();
 window.doGoogleLogin = async () => {
   try {
     const c = await signInWithPopup(auth, new GoogleAuthProvider());
