@@ -1452,7 +1452,7 @@ const EVENTS = [
 ];
 
 // イベント発生確率: 1ティック = 約1.5%（1分に1回くらい）
-const EVENT_PROB = 0.04; // 約2.5秒に1回の頻度
+const EVENT_PROB = 0.015;
 // イベントログ（最大30件）
 const eventLog = [];
 
@@ -1916,7 +1916,8 @@ window.buyItem = async id => {
   d.items = d.items || {};
   // アイテム効果を即時発動
   if (it.id==='timemachine') {
-    d.cash *= 2;
+    d.cash = Math.round(d.cash * 2); // cost引き後の残金を2倍
+    d.items.timemachine = (d.items.timemachine||0) + 1;
     showNotif('⏰ タイムマシン発動！現金が2倍になった！', 'ok');
   } else if (it.id==='laptop') {
     d.items[id] = 1;
@@ -2253,6 +2254,36 @@ window.executeTrade = async () => {
   } catch(e) { msgEl.textContent='保存エラー: '+e.message; msgEl.className='trade-msg err'; }
 };
 
+window.sellAllStocks = async () => {
+  const d = state.userData;
+  const entries = Object.entries(d.holdings||{}).filter(([,q])=>q>0);
+  if (!entries.length) { showNotif('保有株がありません', 'err'); return; }
+  if (!confirm('保有している全ての株を売却しますか？')) return;
+
+  let totalReturn = 0;
+  entries.forEach(([ticker, qty]) => {
+    const price = state.prices[ticker] || 0;
+    totalReturn += price * qty;
+  });
+  d.cash += totalReturn;
+  d.holdings = {};
+
+  try {
+    await setDoc(doc(db,'users',state.user.uid), { cash: d.cash, holdings: {} }, { merge: true });
+    // 履歴に一括売却を記録
+    await addDoc(collection(db,'users',state.user.uid,'history'), {
+      type: 'SELL', ticker: 'ALL', qty: entries.length,
+      price: 0, total: totalReturn, timestamp: serverTimestamp()
+    });
+    // ランキング更新
+    const hVal = 0;
+    await setDoc(doc(db,'ranking',state.user.uid), { name:d.name, totalAssets:d.cash+hVal, uid:state.user.uid });
+    renderSidebar();
+    renderHoldings();
+    showNotif('💰 全株売却！+' + fmt(totalReturn), 'ok');
+  } catch(e) { showNotif('保存エラー: ' + e.message, 'err'); }
+};
+
 function renderHoldings() {
   const el = document.getElementById('holdings-content');
   const entries = Object.entries(state.userData?.holdings||{}).filter(([,q])=>q>0);
@@ -2260,7 +2291,7 @@ function renderHoldings() {
 
   // 通常株
   if (entries.length) {
-    html += `<div style="font-family:var(--font-mono);font-size:11px;color:var(--blue);letter-spacing:2px;margin-bottom:10px;">📈 上場株式</div>`;
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--blue);letter-spacing:2px;">📈 上場株式</div><button onclick="sellAllStocks()" style="padding:6px 14px;background:transparent;border:1px solid var(--red);border-radius:3px;color:var(--red);font-size:11px;cursor:pointer;font-family:var(--font-mono)">全売却</button></div>`;
     html += `<table class="holdings-table"><thead><tr><th>銘柄</th><th>会社名</th><th>数量</th><th>現在値</th><th>評価額</th><th>損益</th></tr></thead><tbody>`;
     entries.forEach(([ticker,qty]) => {
       const s=STOCKS.find(x=>x.ticker===ticker), price=state.prices[ticker]||0;
@@ -2335,7 +2366,6 @@ async function renderRanking() {
   try {
     const d=state.userData;
     const hVal=Object.entries(d.holdings||{}).reduce((s,[t,q])=>s+(state.prices[t]||0)*q,0);
-    // プレイヤー会社株の評価額も加算
     let csVal = 0;
     for (const [ownerUid, qty] of Object.entries(d.companyStocks||{})) {
       if (qty <= 0) continue;
@@ -2346,15 +2376,36 @@ async function renderRanking() {
         }
       } catch {}
     }
-    await setDoc(doc(db,'ranking',state.user.uid), { name:d.name, totalAssets:d.cash+hVal+csVal, uid:state.user.uid });
+    // コーヒー所持数もランキングDBに保存
+    const coffeeCount = (d.items?.coffee||0);
+    await setDoc(doc(db,'ranking',state.user.uid), { name:d.name, totalAssets:d.cash+hVal+csVal, uid:state.user.uid, coffee:coffeeCount });
+
+    // 総資産ランキング
     const snap=await getDocs(query(collection(db,'ranking'),orderBy('totalAssets','desc'),limit(20)));
-    let html='<div class="rank-list">'; let rank=1;
+    let html='<div style="font-family:var(--font-mono);font-size:12px;color:var(--blue);letter-spacing:2px;margin-bottom:12px;">💰 総資産ランキング</div>';
+    html+='<div class="rank-list">'; let rank=1;
     snap.forEach(d => {
       const r=d.data(), isMe=r.uid===state.user.uid;
       html+=`<div class="rank-item"><div class="rank-num">${rank}</div><div class="rank-name">${r.name}${isMe?'<span class="rank-me">あなた</span>':''}</div><div class="rank-value">${fmt(r.totalAssets)}</div></div>`;
       rank++;
     });
-    el.innerHTML=html+'</div>';
+    html+='</div>';
+
+    // コーヒーランキング
+    const coffeeSnap=await getDocs(query(collection(db,'ranking'),orderBy('coffee','desc'),limit(10)));
+    html+='<div style="font-family:var(--font-mono);font-size:12px;color:var(--gold);letter-spacing:2px;margin:28px 0 12px;">☕ 缶コーヒー所持数ランキング</div>';
+    html+='<div class="rank-list">'; let crank=1;
+    coffeeSnap.forEach(d => {
+      const r=d.data();
+      if (!r.coffee) return;
+      const isMe=r.uid===state.user.uid;
+      html+=`<div class="rank-item"><div class="rank-num">${crank}</div><div class="rank-name">${r.name}${isMe?'<span class="rank-me">あなた</span>':''}</div><div class="rank-value" style="color:var(--gold)">${r.coffee.toLocaleString()}本</div></div>`;
+      crank++;
+    });
+    if(crank===1) html+='<div style="color:var(--muted);font-size:12px;padding:12px 0">まだコーヒーを飲んだ人はいません</div>';
+    html+='</div>';
+
+    el.innerHTML=html;
   } catch(e) { el.innerHTML='<div style="color:var(--red)">エラー: '+e.message+'</div>'; }
 }
 
@@ -2380,12 +2431,10 @@ window.switchAuctionTab = tab => {
 // navToからオークションを開くとき
 function initAuctionPage() {
   switchAuctionTab('list');
-  startAuctionCleanupTimer();
+  cleanupExpiredAuctions();
 }
 
-// 期限切れオークション削除（終了から10分後に削除）
-const AUCTION_DELETE_DELAY = 10 * 60 * 1000; // 10分
-
+// 期限切れオークションをFirestoreから一括削除（ログイン時・ページ表示時に実行）
 async function cleanupExpiredAuctions() {
   try {
     const snap = await getDocs(query(collection(db, 'auctions'), limit(100)));
@@ -2393,30 +2442,18 @@ async function cleanupExpiredAuctions() {
     const promises = [];
     snap.forEach(d => {
       const a = d.data();
-      const expiredAt = a.ended ? (a.endAt || 0) : (now > a.endAt ? a.endAt : null);
-      if (expiredAt === null) return; // まだ終了してない
-
-      // 終了から10分経過していたら削除
-      const deleteReady = now - expiredAt >= AUCTION_DELETE_DELAY;
-      if (!deleteReady) return;
-
-      const aData = { id: d.id, ...a };
-      // 未処理（endedフラグがfalse）なら落札処理してから削除
-      if (!a.ended && a.sellerUid === state.user?.uid) {
-        promises.push(checkAuctionEnd(aData).then(() => deleteDoc(d.ref).catch(() => {})));
-      } else if (a.ended) {
-        promises.push(deleteDoc(d.ref).catch(() => {}));
+      if (a.ended || now > a.endAt) {
+        // 落札処理が必要なもの（自分が出品者かつ未処理）
+        const aData = { id: d.id, ...a };
+        if (!a.ended && a.sellerUid === state.user?.uid) {
+          promises.push(checkAuctionEnd(aData).then(() => deleteDoc(d.ref).catch(() => {})));
+        } else {
+          promises.push(deleteDoc(d.ref).catch(() => {}));
+        }
       }
     });
     await Promise.all(promises);
-    if (promises.length > 0) console.log('クリーンアップ: ' + promises.length + '件削除');
   } catch(e) { console.warn('cleanupExpiredAuctions:', e.message); }
-}
-
-// 定期クリーンアップ（1分ごと）
-function startAuctionCleanupTimer() {
-  cleanupExpiredAuctions();
-  setInterval(cleanupExpiredAuctions, 60 * 1000);
 }
 
 // 画像処理（リサイズ・Base64変換）
@@ -3032,7 +3069,7 @@ const ITEMS = [
   { id:'laptop',   icon:'💻', name:'トレーディングPC',  cost:30000,  effect:'価格更新を3秒に短縮',    desc:'高性能PCで情報処理が速くなる。株価更新が5秒→3秒に！', consumable: false },
   { id:'suit',     icon:'👔', name:'高級スーツ',         cost:50000,  effect:'称号「紳士投資家」獲得', desc:'一流投資家の証。サイドバーの名前に✨がつく。', consumable: false },
   { id:'yacht',    icon:'⛵', name:'ヨット',             cost:500000, effect:'称号「億り人」獲得',     desc:'成功の象徴。名前に🚢がつき、ランキングで目立つ！', consumable: false },
-  { id:'timemachine',icon:'⏰',name:'タイムマシン',      cost:999999, effect:'現金を2倍にする（1回）', desc:'伝説のアイテム。購入した瞬間に現金が2倍になる！', consumable: true },
+  { id:'timemachine',icon:'⏰',name:'タイムマシン',      cost:1499999, effect:'現金を2倍にする（1回限り）', desc:'伝説のアイテム。購入した瞬間に現金が2倍になる！一生に一度だけ。', consumable: false },
 ];
 
 window.switchShopTab = tab => {
