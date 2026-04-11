@@ -391,28 +391,6 @@ body::after {
 .notif.ok { border-left: 3px solid var(--green); color: var(--green); }
 .notif.err { border-left: 3px solid var(--red); color: var(--red); }
 
-/* 省エネモード */
-body.eco-mode *,
-body.eco-mode *::before,
-body.eco-mode *::after {
-  animation-play-state: paused !important;
-  animation: none !important;
-  transition: none !important;
-}
-body.eco-mode body::before,
-body.eco-mode body::after { display: none !important; }
-.eco-btn {
-  position: fixed; bottom: 16px; right: 16px; z-index: 500;
-  background: var(--panel); border: 1px solid var(--border);
-  border-radius: 20px; padding: 6px 14px;
-  font-family: var(--font-mono); font-size: 11px;
-  color: var(--muted); cursor: pointer; transition: all .2s;
-  display: flex; align-items: center; gap: 6px;
-}
-.eco-btn:hover { border-color: var(--green); color: var(--green); }
-.eco-btn.active { border-color: var(--green); color: var(--green); background: rgba(0,230,118,.08); }
-.eco-indicator { font-size: 10px; }
-
 /* LOADING */
 #loading { position: fixed; inset: 0; z-index: 200; background: var(--bg); display: flex; align-items: center; justify-content: center; }
 .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; }
@@ -600,10 +578,6 @@ body.eco-mode body::after { display: none !important; }
       <div class="nav-item" data-page="company" onclick="navTo('company')"><span class="nav-icon">🏭</span> 起業・経営</div>
     </nav>
     <button class="logout-btn" onclick="doLogout()">ログアウト</button>
-    <button class="eco-btn" id="eco-btn" onclick="toggleEcoMode()" title="省エネモード">
-      <span id="eco-icon">🌿</span>
-      <span id="eco-label">省エネ</span>
-    </button>
   </aside>
 
   <main class="main-content">
@@ -1777,7 +1751,6 @@ onAuthStateChanged(auth, async user => {
     document.getElementById('game-screen').classList.add('active');
     setTimeout(() => {
       renderMarket(); renderSidebar(); updateTickerBar(); drawOverviewChart();
-      restoreEcoMode();
       if (window._offlineSummary) {
         const { timeStr, cashDelta, ticks } = window._offlineSummary;
         const msg = cashDelta > 0
@@ -3080,67 +3053,6 @@ window.placeBidBuyNow = async (auctionId, buyNowPrice) => {
     showNotif('エラー: ' + e.message, 'err');
   }
 };
-
-
-// ── 省エネモード ──
-let _ecoMode = false;
-let _ecoBatteryCheck = null;
-
-function setEcoMode(on) {
-  _ecoMode = on;
-  document.body.classList.toggle('eco-mode', on);
-  const btn = document.getElementById('eco-btn');
-  const icon = document.getElementById('eco-icon');
-  const label = document.getElementById('eco-label');
-  if (btn) btn.classList.toggle('active', on);
-  if (icon) icon.textContent = on ? '🔋' : '🌿';
-  if (label) label.textContent = on ? 'ON' : '省エネ';
-  localStorage.setItem('eco_mode', on ? '1' : '0');
-}
-
-window.toggleEcoMode = () => setEcoMode(!_ecoMode);
-
-// バッテリー自動検知（20%以下でON）
-async function initBatteryMonitor() {
-  if (!navigator.getBattery) return;
-  try {
-    const battery = await navigator.getBattery();
-    const check = () => {
-      const pct = battery.level * 100;
-      const charging = battery.charging;
-      const badge = document.getElementById('eco-icon');
-      // 充電中なら解除、20%以下で自動ON（手動OFFのときは除く）
-      if (!charging && pct <= 20 && !_ecoMode) {
-        setEcoMode(true);
-        showNotif('🔋 バッテリー残量' + Math.round(pct) + '%：省エネモードON', 'ok');
-      } else if ((charging || pct > 25) && _ecoMode && localStorage.getItem('eco_manual') !== '1') {
-        setEcoMode(false);
-      }
-      // バッテリー残量をボタンに表示
-      const btn = document.getElementById('eco-btn');
-      if (btn && pct <= 30) {
-        const label = document.getElementById('eco-label');
-        if (label) label.textContent = _ecoMode ? 'ON' : Math.round(pct) + '%';
-      }
-    };
-    battery.addEventListener('levelchange', check);
-    battery.addEventListener('chargingchange', check);
-    check();
-  } catch(e) {}
-}
-
-// 手動切替時はmanualフラグを立てる
-const _origToggle = window.toggleEcoMode;
-window.toggleEcoMode = () => {
-  localStorage.setItem('eco_manual', _ecoMode ? '0' : '1');
-  setEcoMode(!_ecoMode);
-};
-
-// 起動時に前回の設定を復元
-function restoreEcoMode() {
-  if (localStorage.getItem('eco_mode') === '1') setEcoMode(true);
-  initBatteryMonitor();
-}
 
 function showNotif(msg, type) {
   const el=document.getElementById('notif');
