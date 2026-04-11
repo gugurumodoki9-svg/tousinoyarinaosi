@@ -1452,7 +1452,7 @@ const EVENTS = [
 ];
 
 // イベント発生確率: 1ティック = 約1.5%（1分に1回くらい）
-const EVENT_PROB = 0.015;
+const EVENT_PROB = 0.04; // 約2.5秒に1回の頻度
 // イベントログ（最大30件）
 const eventLog = [];
 
@@ -2380,10 +2380,12 @@ window.switchAuctionTab = tab => {
 // navToからオークションを開くとき
 function initAuctionPage() {
   switchAuctionTab('list');
-  cleanupExpiredAuctions();
+  startAuctionCleanupTimer();
 }
 
-// 期限切れオークションをFirestoreから一括削除（ログイン時・ページ表示時に実行）
+// 期限切れオークション削除（終了から10分後に削除）
+const AUCTION_DELETE_DELAY = 10 * 60 * 1000; // 10分
+
 async function cleanupExpiredAuctions() {
   try {
     const snap = await getDocs(query(collection(db, 'auctions'), limit(100)));
@@ -2391,18 +2393,30 @@ async function cleanupExpiredAuctions() {
     const promises = [];
     snap.forEach(d => {
       const a = d.data();
-      if (a.ended || now > a.endAt) {
-        // 落札処理が必要なもの（自分が出品者かつ未処理）
-        const aData = { id: d.id, ...a };
-        if (!a.ended && a.sellerUid === state.user?.uid) {
-          promises.push(checkAuctionEnd(aData).then(() => deleteDoc(d.ref).catch(() => {})));
-        } else {
-          promises.push(deleteDoc(d.ref).catch(() => {}));
-        }
+      const expiredAt = a.ended ? (a.endAt || 0) : (now > a.endAt ? a.endAt : null);
+      if (expiredAt === null) return; // まだ終了してない
+
+      // 終了から10分経過していたら削除
+      const deleteReady = now - expiredAt >= AUCTION_DELETE_DELAY;
+      if (!deleteReady) return;
+
+      const aData = { id: d.id, ...a };
+      // 未処理（endedフラグがfalse）なら落札処理してから削除
+      if (!a.ended && a.sellerUid === state.user?.uid) {
+        promises.push(checkAuctionEnd(aData).then(() => deleteDoc(d.ref).catch(() => {})));
+      } else if (a.ended) {
+        promises.push(deleteDoc(d.ref).catch(() => {}));
       }
     });
     await Promise.all(promises);
+    if (promises.length > 0) console.log('クリーンアップ: ' + promises.length + '件削除');
   } catch(e) { console.warn('cleanupExpiredAuctions:', e.message); }
+}
+
+// 定期クリーンアップ（1分ごと）
+function startAuctionCleanupTimer() {
+  cleanupExpiredAuctions();
+  setInterval(cleanupExpiredAuctions, 60 * 1000);
 }
 
 // 画像処理（リサイズ・Base64変換）
