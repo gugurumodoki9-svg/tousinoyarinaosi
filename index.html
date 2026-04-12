@@ -391,6 +391,28 @@ body::after {
 .notif.ok { border-left: 3px solid var(--green); color: var(--green); }
 .notif.err { border-left: 3px solid var(--red); color: var(--red); }
 
+/* 省エネモード */
+body.eco-mode *,
+body.eco-mode *::before,
+body.eco-mode *::after {
+  animation-play-state: paused !important;
+  animation: none !important;
+  transition: none !important;
+}
+body.eco-mode body::before,
+body.eco-mode body::after { display: none !important; }
+.eco-btn {
+  position: fixed; bottom: 16px; right: 16px; z-index: 500;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 20px; padding: 6px 14px;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--muted); cursor: pointer; transition: all .2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.eco-btn:hover { border-color: var(--green); color: var(--green); }
+.eco-btn.active { border-color: var(--green); color: var(--green); background: rgba(0,230,118,.08); }
+.eco-indicator { font-size: 10px; }
+
 /* LOADING */
 #loading { position: fixed; inset: 0; z-index: 200; background: var(--bg); display: flex; align-items: center; justify-content: center; }
 .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; }
@@ -578,6 +600,10 @@ body::after {
       <div class="nav-item" data-page="company" onclick="navTo('company')"><span class="nav-icon">🏭</span> 起業・経営</div>
     </nav>
     <button class="logout-btn" onclick="doLogout()">ログアウト</button>
+    <button class="eco-btn" id="eco-btn" onclick="toggleEcoMode()" title="省エネモード">
+      <span id="eco-icon">🌿</span>
+      <span id="eco-label">省エネ</span>
+    </button>
   </aside>
 
   <main class="main-content">
@@ -909,7 +935,7 @@ body::after {
     <!-- チンチロ -->
     <div class="page" id="page-chinchiro">
       <div class="page-title">🎲 電脳チンチロ</div>
-<div id="admin-overlay">
+<div id="admin-overlay" style="display:none">
     <div class="panel admin-panel-inner" style="border-color:var(--pink); width: 360px;">
         <div class="title" style="color:var(--pink);">ADMIN CONSOLE</div>
 
@@ -1751,6 +1777,7 @@ onAuthStateChanged(auth, async user => {
     document.getElementById('game-screen').classList.add('active');
     setTimeout(() => {
       renderMarket(); renderSidebar(); updateTickerBar(); drawOverviewChart();
+      restoreEcoMode();
       if (window._offlineSummary) {
         const { timeStr, cashDelta, ticks } = window._offlineSummary;
         const msg = cashDelta > 0
@@ -3054,6 +3081,67 @@ window.placeBidBuyNow = async (auctionId, buyNowPrice) => {
   }
 };
 
+
+// ── 省エネモード ──
+let _ecoMode = false;
+let _ecoBatteryCheck = null;
+
+function setEcoMode(on) {
+  _ecoMode = on;
+  document.body.classList.toggle('eco-mode', on);
+  const btn = document.getElementById('eco-btn');
+  const icon = document.getElementById('eco-icon');
+  const label = document.getElementById('eco-label');
+  if (btn) btn.classList.toggle('active', on);
+  if (icon) icon.textContent = on ? '🔋' : '🌿';
+  if (label) label.textContent = on ? 'ON' : '省エネ';
+  localStorage.setItem('eco_mode', on ? '1' : '0');
+}
+
+window.toggleEcoMode = () => setEcoMode(!_ecoMode);
+
+// バッテリー自動検知（20%以下でON）
+async function initBatteryMonitor() {
+  if (!navigator.getBattery) return;
+  try {
+    const battery = await navigator.getBattery();
+    const check = () => {
+      const pct = battery.level * 100;
+      const charging = battery.charging;
+      const badge = document.getElementById('eco-icon');
+      // 充電中なら解除、20%以下で自動ON（手動OFFのときは除く）
+      if (!charging && pct <= 20 && !_ecoMode) {
+        setEcoMode(true);
+        showNotif('🔋 バッテリー残量' + Math.round(pct) + '%：省エネモードON', 'ok');
+      } else if ((charging || pct > 25) && _ecoMode && localStorage.getItem('eco_manual') !== '1') {
+        setEcoMode(false);
+      }
+      // バッテリー残量をボタンに表示
+      const btn = document.getElementById('eco-btn');
+      if (btn && pct <= 30) {
+        const label = document.getElementById('eco-label');
+        if (label) label.textContent = _ecoMode ? 'ON' : Math.round(pct) + '%';
+      }
+    };
+    battery.addEventListener('levelchange', check);
+    battery.addEventListener('chargingchange', check);
+    check();
+  } catch(e) {}
+}
+
+// 手動切替時はmanualフラグを立てる
+const _origToggle = window.toggleEcoMode;
+window.toggleEcoMode = () => {
+  localStorage.setItem('eco_manual', _ecoMode ? '0' : '1');
+  setEcoMode(!_ecoMode);
+};
+
+// 起動時に前回の設定を復元
+function restoreEcoMode() {
+  if (localStorage.getItem('eco_mode') === '1') setEcoMode(true);
+  initBatteryMonitor();
+}
+
 function showNotif(msg, type) {
   const el=document.getElementById('notif');
   el.textContent=msg; el.className='notif '+type+' show';
@@ -3149,6 +3237,838 @@ window.toggleUpgSection = (id) => {
   const el = document.getElementById('upg-' + id);
   if (el) el.classList.toggle('open');
 };
+
+
+function initPachinko() {
+  if (window._pkInited) return;
+  window._pkInited = true;
+  window.SHARED_CASH = undefined;
+  startApp();
+}
+
+// Firebase: BULLRUNの共通auth/dbを使用
+
+let pk_auth, pk_db;
+let money, balls, inventory, ownedItems, equippedTool, activeSkin;
+let totalSpent, comboCount, totalShots, debt;
+let stock = 0, isSpinning = false, isKakuhen = false;
+let currentUser = null;
+let activeBalls = [], pegs = [];
+let adTimer = null;
+let matchHistory = [];
+let maxCombo = 0;
+
+function addHistory(type) {
+    // type: 'gold' | 'silver' | 'bronze' | 'miss'
+    matchHistory.unshift(type);
+    if (matchHistory.length > 15) matchHistory.pop();
+    pk_renderHistory();
+}
+
+function slotWinEffect(type) {
+    const sc = document.getElementById('slot-container');
+    const cls = type === 'gold' ? 'slot-win-gold' : 'slot-win-silver';
+    sc.classList.add(cls);
+    // シンボルをバウンド
+    ['s1','s2','s3'].forEach((id, i) => {
+        setTimeout(() => {
+            const el = document.getElementById(id);
+            el.classList.remove('sym-bounce');
+            el.offsetWidth; // reflow
+            el.classList.add('sym-bounce');
+            setTimeout(() => el.classList.remove('sym-bounce'), 500);
+        }, i * 120);
+    });
+    // クラス除去
+    setTimeout(() => sc.classList.remove(cls), 1900);
+}
+
+function pk_renderHistory() {
+    const el = document.getElementById('history-list');
+    if (!el) return;
+    if (matchHistory.length === 0) {
+        el.innerHTML = '<span style="color:#444;font-size:10px;">まだ記録なし</span>';
+        return;
+    }
+    const labels = { gold:'🥇', silver:'🥈', bronze:'🥉', miss:'×' };
+    el.innerHTML = matchHistory.map(t =>
+        `<span class="history-badge ${t==='miss'?'miss':'hit-'+t}">${labels[t]}</span>`
+    ).join('');
+}
+
+let PK_G = { kakuhenProb:0.45, normalProb:0.08, goldProb:0.30, silverRate:500, goldRate:2000, luckMulti:1 };
+
+const PK_ITEMS = {
+    tools: [
+        {id:'t-auto',    name:'🔫 自動連射機',   price:5000,      desc:'自動で連続発射'},
+        {id:'t-magnet',  name:'🧲 磁力チャッカー', price:50000,     desc:'キャッチャー幅2倍（紫色）'},
+        {id:'t-twin',    name:'⚔️ ツイン発射',   price:500000,    desc:'2発同時発射'},
+        {id:'t-triple',  name:'🔱 ストックMAX',  price:2000000,   desc:'ストック上限4→8に拡張'},
+        {id:'t-gravity', name:'🌌 重力崩壊',     price:10000000,  desc:'金景品の換金額が3倍'}
+    ],
+    skins: [
+        {id:'s-def',    name:'📱 標準',   price:0,         bg:'#000', pin:'#ddd'},
+        {id:'s-neon',   name:'🌈 ネオン',  price:100000,    bg:'#001', pin:'#0ff'},
+        {id:'s-gold',   name:'✨ 純金',   price:1000000,   bg:'#210', pin:'#ff0'},
+        {id:'s-ruby',   name:'🍎 紅蓮',   price:5000000,   bg:'#300', pin:'#f00'},
+        {id:'s-dia',    name:'💎 剛金',   price:20000000,  bg:'#112', pin:'#fff'},
+        {id:'s-galaxy', name:'🌌 銀河',   price:100000000, bg:'#001', pin:'#f0f'},
+        {id:'s-void',   name:'⬛ 無',     price:500000000, bg:'#000', pin:'#222'}
+    ],
+    loans: [
+        {id:'l-sm',  name:'⚡ 小口融資', amount:10000,    desc:'$10,000借入 / 利息10%/ログイン'},
+        {id:'l-md',  name:'💵 中口融資', amount:100000,   desc:'$100,000借入 / 利息10%/ログイン'},
+        {id:'l-lg',  name:'💰 大口融資', amount:1000000,  desc:'$1,000,000借入 / 利息10%/ログイン'},
+        {id:'l-vip', name:'👑 VIP融資',  amount:10000000, desc:'$10,000,000借入 / 利息10%/ログイン'},
+    ]
+};
+
+const PK_MISSIONS = [
+    {id:'m01', n:'初打ち: 100発',           c:()=>totalShots>=100,       rm:500,     rb:20},
+    {id:'m02', n:'修行中: 1,000発',          c:()=>totalShots>=1000,      rm:2000,    rb:100},
+    {id:'m03', n:'廃人: 10,000発',           c:()=>totalShots>=10000,     rm:10000,   rb:500},
+    {id:'m04', n:'伝説: 100,000発',          c:()=>totalShots>=100000,    rm:100000,  rb:2000},
+    {id:'m05', n:'小金持ち: $10万',           c:()=>money>=100000,         rm:5000,    rb:50},
+    {id:'m06', n:'富豪: $100万',             c:()=>money>=1000000,        rm:50000,   rb:200},
+    {id:'m07', n:'億万長者: $1億',            c:()=>money>=100000000,      rm:500000,  rb:1000},
+    {id:'m08', n:'神: $10億',               c:()=>money>=1000000000,     rm:5000000, rb:5000},
+    {id:'m09', n:'連チャン: 3連',             c:()=>comboCount>=3,         rm:1000,    rb:30},
+    {id:'m10', n:'連チャン: 5連',             c:()=>comboCount>=5,         rm:3000,    rb:80},
+    {id:'m11', n:'神業: 15連',              c:()=>comboCount>=15,        rm:30000,   rb:300},
+    {id:'m12', n:'超神業: 30連',             c:()=>comboCount>=30,        rm:200000,  rb:1000},
+    {id:'m13', n:'浪費家: $1万消費',          c:()=>totalSpent>=10000,     rm:2000,    rb:50},
+    {id:'m14', n:'大浪費: $100万消費',        c:()=>totalSpent>=1000000,   rm:20000,   rb:200},
+    {id:'m15', n:'破産寸前: $1億消費',        c:()=>totalSpent>=100000000, rm:500000,  rb:2000},
+    {id:'m16', n:'自動連射機を購入',           c:()=>ownedItems.includes('t-auto'),    rm:3000,   rb:100},
+    {id:'m17', n:'磁力チャッカー購入',          c:()=>ownedItems.includes('t-magnet'),  rm:10000,  rb:200},
+    {id:'m18', n:'重力崩壊を購入',            c:()=>ownedItems.includes('t-gravity'), rm:100000, rb:500},
+    {id:'m19', n:'コレクター: スキン3種所持',   c:()=>ownedItems.filter(i=>i.startsWith('s-')).length>=3, rm:20000,   rb:300},
+    {id:'m20', n:'究極コレクター: 全スキン所持', c:()=>ownedItems.filter(i=>i.startsWith('s-')).length>=7, rm:1000000, rb:2000},
+];
+
+const PK_AD_CONFIG = [
+    {reward_money:100,   reward_balls:5,  duration:15},
+    {reward_money:300,   reward_balls:10, duration:20},
+    {reward_money:1000,  reward_balls:20, duration:25},
+    {reward_money:10000, reward_balls:50, duration:30},
+];
+const AD_DAILY_LIMIT = 5;
+const AD_EMOJIS = ['🚀','💊','🏖️','🎮','🍕','⚽','🎸','🌈','🦁','💡'];
+const outHoles = [{x:10,y:230,w:60,h:10},{x:230,y:230,w:60,h:10}];
+
+// ===== toast（最初に定義） =====
+function toast(msg, color='#0ff', dur=2000) {
+    const t = document.createElement('div');
+    t.innerText = msg;
+    t.style.cssText = `position:fixed;top:15%;left:50%;transform:translateX(-50%);background:#111;border:2px solid ${color};color:${color};padding:10px 20px;border-radius:10px;font-weight:bold;z-index:9999;font-size:13px;pointer-events:none;white-space:nowrap;`;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), dur);
+}
+
+function pk_initData(reset=false) {
+    if (reset) {
+        money=1000; balls=100; debt=0;
+        inventory={bronze:0,silver:0,gold:0};
+        ownedItems=['s-def']; activeSkin='s-def'; equippedTool=null;
+        totalSpent=0; comboCount=0; totalShots=0;
+        localStorage.clear();
+    } else {
+        money     = window.SHARED_CASH !== undefined ? window.SHARED_CASH : (parseInt(localStorage.getItem('p_money')) || 10000);
+        balls     = parseInt(localStorage.getItem('p_balls'))  || 100;
+        debt      = parseInt(localStorage.getItem('p_debt'))   || 0;
+        inventory = JSON.parse(localStorage.getItem('p_prizes') || '{"bronze":0,"silver":0,"gold":0}');
+        ownedItems  = JSON.parse(localStorage.getItem('p_owned') || '["s-def"]');
+        activeSkin  = localStorage.getItem('p_skin') || 's-def';
+        equippedTool= localStorage.getItem('p_tool') || null;
+        totalSpent  = parseInt(localStorage.getItem('p_spent')) || 0;
+        comboCount  = parseInt(localStorage.getItem('p_combo')) || 0;
+        totalShots  = parseInt(localStorage.getItem('p_shots')) || 0;
+    }
+    stock=0; isSpinning=false; isKakuhen=false;
+}
+
+function pk_saveData() {
+    localStorage.setItem('p_money',  money);
+    if (window.SHARED_SAVE_CASH) window.SHARED_SAVE_CASH(money);
+    localStorage.setItem('p_balls',  balls);
+    localStorage.setItem('p_debt',   debt);
+    localStorage.setItem('p_prizes', JSON.stringify(inventory));
+    localStorage.setItem('p_owned',  JSON.stringify(ownedItems));
+    localStorage.setItem('p_skin',   activeSkin);
+    localStorage.setItem('p_tool',   equippedTool || '');
+    localStorage.setItem('p_spent',  totalSpent);
+    localStorage.setItem('p_combo',  comboCount);
+    localStorage.setItem('p_shots',  totalShots);
+    if (currentUser) {
+        pk_pk_db.ref('users/' + currentUser.uid).set({name: currentUser.displayName, money});
+        // 発射数差分をサーバーに加算
+        const prevShots = parseInt(localStorage.getItem('p_shots_synced') || '0');
+        const diff = totalShots - prevShots;
+        if (diff > 0) {
+            pk_pk_db.ref('system/server_stats/total_shots').transaction(v => (v || 0) + diff);
+            localStorage.setItem('p_shots_synced', totalShots);
+        }
+    }
+}
+
+function pk_updateUI() {
+    document.getElementById('money-display').innerText = money.toLocaleString();
+    document.getElementById('balls-display').innerText = balls;
+    document.getElementById('combo-count').innerText   = comboCount;
+    const stockMax = equippedTool==='t-triple' ? 8 : 4;
+    document.getElementById('stock-lamps').innerText   = '●'.repeat(stock) + '○'.repeat(stockMax - stock);
+    document.getElementById('luck-multi-display').innerText = `LUCK x${PK_G.luckMulti}`;
+    document.getElementById('kakuhen-lamp').innerText  = isKakuhen ? '🔥 確変中 🔥' : '通常';
+    document.getElementById('pachinko-machine').className = isKakuhen ? 'kakuhen-mode' : '';
+    document.getElementById('p-bronze').innerText = inventory.bronze;
+    document.getElementById('p-silver').innerText = inventory.silver;
+    document.getElementById('p-gold').innerText   = inventory.gold;
+    const panel = document.getElementById('debt-panel');
+    document.getElementById('debt-panel-amount').innerText = '$' + (debt||0).toLocaleString();
+    panel.className = debt > 0 ? 'in-debt' : '';
+    renderShop('shop-tools', PK_ITEMS.tools, 't');
+    renderShop('shop-skins', PK_ITEMS.skins, 's');
+    renderLoans();
+    renderMissions();
+    renderStats();
+    pk_saveData();
+}
+
+function renderStats() {
+    const el = document.getElementById('stats-panel');
+    if (!el) return;
+    el.innerHTML = `
+        <div>🎯 総発射数: <b>${(totalShots||0).toLocaleString()}発</b></div>
+        <div>💸 総消費額: <b>$${(totalSpent||0).toLocaleString()}</b></div>
+        <div>🔥 最高連チャン: <b>${(maxCombo||0)}連</b></div>
+        <div>🎰 現在連チャン: <b>${(comboCount||0)}連</b></div>
+        <div>💰 所持金: <b>$${(money||0).toLocaleString()}</b></div>
+        <div>💀 借金: <b style="color:${debt>0?'#f44':'#0f0'}">$${(debt||0).toLocaleString()}</b></div>
+    `;
+}
+
+function renderShop(targetId, list, type) {
+    document.getElementById(targetId).innerHTML = list.map(item => {
+        const owned   = ownedItems.includes(item.id);
+        const equipped= (type==='t' && equippedTool===item.id) || (type==='s' && activeSkin===item.id);
+        return `<div class="shop-item ${equipped?'equipped':''}" data-action="item" data-id="${item.id}" data-price="${item.price}" data-type="${type}">
+            <div><div>${item.name}</div>${item.desc?`<div class="shop-item-desc">${item.desc}</div>`:''}</div>
+            <span>${owned?(equipped?'装備中':'所有'):'$'+item.price.toLocaleString()}</span>
+        </div>`;
+    }).join('');
+}
+
+function renderLoans() {
+    document.getElementById('shop-loans').innerHTML = PK_ITEMS.loans.map(l =>
+        `<div class="shop-item" data-action="loan" data-id="${l.id}">
+            <div><div>${l.name}</div><div class="shop-item-desc">${l.desc}</div></div>
+            <span style="color:#f90;">借りる</span>
+        </div>`
+    ).join('');
+}
+
+function renderMissions() {
+    const claimed = JSON.parse(localStorage.getItem('p_m_claimed') || '[]');
+    document.getElementById('mission-list').innerHTML = PK_MISSIONS.map(m => {
+        const done     = claimed.includes(m.id);
+        const achieved = m.c();
+        const claimable= achieved && !done;
+        const cls  = done ? 'done' : (claimable ? 'claimable' : '');
+        const icon = done ? '✅' : (claimable ? '🎁' : '❌');
+        return `<div class="mission-item ${cls}">
+            <span>${icon} ${m.n}</span>
+            <span class="mission-reward">$${m.rm.toLocaleString()} + ${m.rb}玉</span>
+            ${claimable?`<button class="claim-btn" data-action="claim" data-id="${m.id}" data-rm="${m.rm}" data-rb="${m.rb}">受け取る</button>`:''}
+        </div>`;
+    }).join('');
+}
+
+function updateRanking() {
+    pk_pk_db.ref('users').on('value', snap => {
+        const arr = [];
+        snap.forEach(s => { const v=s.val(); if(v&&v.name&&v.money!==undefined) arr.push(v); });
+        arr.sort((a,b) => b.money - a.money);
+        document.getElementById('ranking-list').innerHTML = arr.slice(0,5).map((u,i) =>
+            `<div class="rank-item"><span>${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${u.name}</span><span>$${u.money.toLocaleString()}</span></div>`
+        ).join('') || '<div style="color:#555;padding:4px;">データなし</div>';
+    });
+}
+
+function listenGifts() {
+    pk_pk_db.ref('gifts/' + currentUser.uid).on('value', snap => {
+        const list = document.getElementById('gift-list');
+        list.innerHTML = '';
+        let count = 0;
+        snap.forEach(g => {
+            const d = g.val();
+            if (!d) return;
+            count++;
+            const btn = document.createElement('button');
+            btn.className = 'styled-button buy-btn';
+            btn.style.marginBottom = '8px';
+            btn.innerText = `🎁 $${(d.money||0).toLocaleString()} + ${d.balls||0}玉`;
+            btn.onclick = () => {
+                money += (d.money||0); balls += (d.balls||0);
+                pk_pk_db.ref('gifts/'+currentUser.uid+'/'+g.key).remove();
+                toast(`🎁 受け取った！ +$${(d.money||0).toLocaleString()} +${d.balls||0}玉`, '#9400d3', 2500);
+                pk_updateUI();
+            };
+            list.appendChild(btn);
+        });
+        if (count===0) list.innerHTML = '<div style="color:#555;font-size:12px;padding:8px;">ギフトなし</div>';
+        else toast(`🎁 ギフトが${count}件届いてるぞ！`, '#9400d3', 2500);
+    });
+}
+
+function updateTicker(msgs) {
+    const el = document.getElementById('news-ticker-text');
+    if (!el) return;
+    const text = msgs.length > 0
+        ? msgs.map(m=>`◆ ${m.text}`).join('　　　　　') + '　　　　　'
+        : 'SYSTEM ONLINE --- 超インフレ・パチンコへようこそ ---';
+    el.innerText = text;
+    el.style.animation = 'none';
+    el.offsetHeight;
+    el.style.animation = `ticker-scroll ${Math.max(20, text.length*0.28)}s linear infinite`;
+}
+
+function setupCanvas() {
+    pegs = [];
+    for (let y=60; y<=210; y+=30) {
+        const off = (Math.floor(y/30)%2===0) ? 15 : 0;
+        for (let x=30; x<280; x+=30) pegs.push({x:x+off, y, type:'pin'});
+    }
+    const addRail = (x1,y1,x2,y2) => {
+        const dist = Math.sqrt((x2-x1)**2+(y2-y1)**2);
+        for (let i=0; i<dist; i+=4) pegs.push({x:x1+(x2-x1)*(i/dist), y:y1+(y2-y1)*(i/dist), type:'rail'});
+    };
+    addRail(0,260,110,315); addRail(300,260,190,315);
+    document.getElementById('shootBtn').onclick = () => {
+        if (balls<=0) return;
+        const cnt = equippedTool==='t-twin' ? 2 : 1;
+        for (let i=0; i<cnt; i++) {
+            if (balls>0) { balls--; totalShots++; activeBalls.push({x:150+(Math.random()-0.5)*20, y:-10, vx:(Math.random()-0.5)*2, vy:2}); }
+        }
+        pk_updateUI();
+    };
+    setInterval(() => { if(equippedTool==='t-auto' && balls>0) document.getElementById('shootBtn').click(); }, 400);
+}
+
+function draw() {
+    const canvas = document.getElementById('pachinkoCanvas');
+    const ctx = canvas.getContext('2d');
+    const skin = PK_ITEMS.skins.find(s=>s.id===activeSkin) || PK_ITEMS.skins[0];
+    ctx.fillStyle = skin.bg; ctx.fillRect(0,0,300,340);
+    outHoles.forEach(h => { ctx.fillStyle='#300'; ctx.fillRect(h.x,h.y,h.w,h.h); });
+    pegs.forEach(p => {
+        ctx.fillStyle = p.type==='rail' ? '#444' : skin.pin;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.type==='rail'?1.2:2,0,7); ctx.fill();
+    });
+    const catcherW = equippedTool==='t-magnet' ? 60 : 30;
+    const cX = 135 + Math.sin(Date.now()/500)*60;
+    ctx.strokeStyle = equippedTool==='t-magnet' ? '#f0f' : '#0ff';
+    ctx.strokeRect(cX,315,catcherW,15);
+    for (let i=0; i<activeBalls.length; i++) {
+        let b = activeBalls[i];
+        b.vy += 0.09; b.x += b.vx * 0.6; b.y += b.vy * 0.6;
+        pegs.forEach(p => {
+            const dx=b.x-p.x, dy=b.y-p.y, d=Math.sqrt(dx*dx+dy*dy);
+            if (d<7) { const a=Math.atan2(dy,dx); b.vx=Math.cos(a)*1.2; b.vy=Math.sin(a)*1.2; }
+        });
+        outHoles.forEach(h => { if(b.x>h.x&&b.x<h.x+h.w&&b.y>h.y&&b.y<h.y+h.h){activeBalls.splice(i,1);i--;} });
+        if (b && b.y>315 && b.x>cX && b.x<cX+catcherW) {
+            activeBalls.splice(i,1); i--;
+            const stockMax = equippedTool==='t-triple' ? 8 : 4;
+            if (stock<stockMax) { stock++; pk_updateUI(); startSlot(); }
+        } else if (b && b.y>350) { activeBalls.splice(i,1); i--; }
+        if (b) { ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(b.x,b.y,4,0,7); ctx.fill(); }
+    }
+    requestAnimationFrame(draw);
+}
+
+function startSlot() {
+    if (isSpinning) return;
+    isSpinning = true;
+    let count = 0;
+    const syms = ['🎰','💰','💎','🍒','7️⃣'];
+    const timer = setInterval(() => {
+        ['s1','s2','s3'].forEach(id => document.getElementById(id).innerText = syms[Math.floor(Math.random()*5)]);
+        if (++count > 12) { clearInterval(timer); checkWin(); }
+    }, 80);
+}
+
+function checkWin() {
+    const s1 = document.getElementById('s1').innerText;
+    const s2 = document.getElementById('s2').innerText;
+    const s3 = document.getElementById('s3').innerText;
+    const allMatch = (s1 === s2 && s2 === s3);
+    const twoMatch = !allMatch && (s1 === s2 || s2 === s3);
+
+    if (allMatch) {
+        // 3つ揃い → 必ず大当たり（金/銀は確率で分岐）
+        if (Math.random() < PK_G.goldProb) {
+            applyLuckBonus(PK_G.goldRate);
+            inventory.gold++; isKakuhen=true; comboCount++;
+            maxCombo = Math.max(maxCombo, comboCount);
+            addHistory('gold');
+            slotWinEffect('gold');
+        } else {
+            applyLuckBonus(PK_G.silverRate);
+            inventory.silver++; isKakuhen=false; comboCount=0;
+            addHistory('silver');
+            slotWinEffect('silver');
+        }
+    } else if (twoMatch) {
+        // 2つ揃い → 銅景品
+        inventory.bronze++;
+        addHistory('bronze');
+    } else {
+        comboCount = 0; isKakuhen = false;
+        addHistory('miss');
+    }
+    isSpinning=false; stock--; pk_updateUI();
+    if (stock>0) setTimeout(startSlot, 300);
+}
+
+function applyLuckBonus(base) {
+    const LM = PK_G.luckMulti;
+    if (LM===1) return base;
+    if (LM>1) {
+        const chance = Math.min((LM-1)*0.1, 1.0);
+        if (Math.random()<chance) { toast(`⭐ LUCK BONUS x2!`,'#a0f'); return Math.floor(base*2); }
+    } else if (LM<1) {
+        if (Math.random()<1-LM) { toast(`💀 BAD LUCK x${LM}`,'#f44'); return Math.floor(base*LM); }
+    }
+    return base;
+}
+
+function buyBalls() {
+    if (money<150) return;
+    money-=150; totalSpent+=150; balls+=50; pk_updateUI();
+}
+
+function exchangeSingle(type) {
+    const goldMult = equippedTool==='t-gravity' ? 3 : 1;
+    const rate = type==='gold' ? PK_G.goldRate*goldMult : type==='silver' ? PK_G.silverRate : 100;
+    if (inventory[type]<=0) return;
+    const earned = inventory[type] * rate;
+    money += earned;
+    inventory[type] = 0;
+    // サーバー統計に加算
+    pk_pk_db.ref('system/server_stats').once('value', ssnap => {
+        const ss = ssnap.val() || {};
+        pk_pk_db.ref('system/server_stats').update({
+            total_exchange: (ss.total_exchange || 0) + earned
+        });
+    });
+    // イベント進捗に加算
+    pk_pk_db.ref('system/event').once('value', snap => {
+        const d = snap.val();
+        if (d && d.title && d.current < d.goal) {
+            const newVal = (d.current || 0) + earned;
+            pk_pk_db.ref('system/event/current').set(newVal);
+            // 目標達成チェック
+            if (newVal >= d.goal && d.bonus > 0) {
+                // 全員にボーナス配布
+                pk_pk_db.ref('users').once('value', usnap => {
+                    usnap.forEach(u => pk_db.ref('gifts/' + u.key).push({money: d.bonus, balls: 0}));
+                });
+                toast(`🏆 イベント目標達成！全員に$${parseInt(d.bonus).toLocaleString()}配布！`, '#ff0', 5000);
+            }
+        }
+    });
+    pk_updateUI();
+}
+
+function itemAction(id, price, type) {
+    if (!ownedItems.includes(id)) {
+        if (money<price) return;
+        money-=price; ownedItems.push(id);
+    } else {
+        if (type==='t') equippedTool = equippedTool===id ? null : id;
+        if (type==='s') activeSkin = id;
+    }
+    pk_updateUI();
+}
+
+function claimMission(id, rm, rb) {
+    const claimed = JSON.parse(localStorage.getItem('p_m_claimed') || '[]');
+    if (claimed.includes(id)) return;
+    claimed.push(id);
+    localStorage.setItem('p_m_claimed', JSON.stringify(claimed));
+    money+=rm; balls+=rb;
+    toast(`🎁 $${rm.toLocaleString()} + ${rb}玉 GET!`, '#0f0');
+    pk_updateUI();
+}
+
+function takeLoan(id) {
+    const l = PK_ITEMS.loans.find(x=>x.id===id);
+    if (!l) return;
+    if (!confirm(`${l.name}\n借入額: $${l.amount.toLocaleString()}\n利息: ログインのたびに10%加算\n\n借りますか？`)) return;
+    money+=l.amount; debt+=l.amount;
+    toast(`💸 $${l.amount.toLocaleString()} 借入完了！`, '#f90');
+    pk_updateUI();
+}
+
+function takeCustomLoan() {
+    const amt = parseInt(document.getElementById('loan-input').value);
+    if (isNaN(amt)||amt<=0) return alert('金額を入力してくれ');
+    if (!confirm(`$${amt.toLocaleString()} 借りますか？\n利息: ログインのたびに10%加算`)) return;
+    money+=amt; debt+=amt;
+    document.getElementById('loan-input').value = '';
+    toast(`💸 $${amt.toLocaleString()} 借入完了！`, '#f90');
+    pk_updateUI();
+}
+
+function repayDebt(all=false) {
+    if (debt<=0) return;
+    const amt = all ? debt : parseInt(document.getElementById('loan-input').value);
+    if (!all && (isNaN(amt)||amt<=0)) return alert('返済額を入力してくれ');
+    if (money<amt) return alert('所持金が足りない！');
+    const actual = Math.min(amt, debt);
+    money-=actual; debt-=actual;
+    toast(`✅ $${actual.toLocaleString()} 返済！ 残債: $${debt.toLocaleString()}`, '#0f0', 2500);
+    pk_updateUI();
+}
+
+function softReset() {
+    if (!confirm('全リセットするぜ？')) return;
+    pk_initData(true); pk_updateUI();
+}
+
+function getAdData() {
+    const today = new Date().toDateString();
+    const raw = JSON.parse(localStorage.getItem('p_ad_data') || '{}');
+    if (raw.date!==today) return {date:today, count:0};
+    return raw;
+}
+
+function watchAd() {
+    const adData = getAdData();
+    const remaining = AD_DAILY_LIMIT - adData.count;
+    const tier = Math.min(adData.count, PK_AD_CONFIG.length-1);
+    const cfg = PK_AD_CONFIG[tier];
+    document.getElementById('ad-reward-amount').innerText = cfg.reward_money.toLocaleString();
+    document.getElementById('ad-reward-balls').innerText  = cfg.reward_balls;
+    document.getElementById('ad-remaining').innerText     = remaining;
+    document.getElementById('ad-countdown').innerText     = '';
+    document.getElementById('ad-progress-wrap').style.display = 'none';
+    document.getElementById('ad-progress-bar').style.width    = '0%';
+    document.getElementById('ad-watch-btn').disabled = remaining<=0;
+    document.getElementById('ad-watch-btn').innerText = remaining>0 ? '▶ 視聴開始' : '本日の上限に達した';
+    document.getElementById('ad-timer-label').innerText = remaining>0 ? `動画を最後まで見ると報酬ゲット！（${cfg.duration}秒）` : '明日また見てね！';
+    document.getElementById('ad-content').innerText = '📺';
+    document.getElementById('ad-modal').style.display = 'flex';
+}
+
+function startAdWatch() {
+    const adData = getAdData();
+    if (AD_DAILY_LIMIT - adData.count <= 0) return;
+    const tier = Math.min(adData.count, PK_AD_CONFIG.length-1);
+    const cfg = PK_AD_CONFIG[tier];
+    document.getElementById('ad-watch-btn').disabled = true;
+    document.getElementById('ad-progress-wrap').style.display = 'block';
+    let elapsed = 0;
+    adTimer = setInterval(() => {
+        elapsed++;
+        document.getElementById('ad-progress-bar').style.width = (elapsed/cfg.duration*100) + '%';
+        document.getElementById('ad-countdown').innerText = `残り ${cfg.duration-elapsed}秒`;
+        document.getElementById('ad-content').innerText = AD_EMOJIS[elapsed % AD_EMOJIS.length];
+        if (elapsed >= cfg.duration) {
+            clearInterval(adTimer);
+            money+=cfg.reward_money; balls+=cfg.reward_balls;
+            adData.count++;
+            localStorage.setItem('p_ad_data', JSON.stringify(adData));
+            document.getElementById('ad-content').innerText = '🎉';
+            document.getElementById('ad-countdown').innerText = '視聴完了！';
+            toast(`📺 広告報酬！ +$${cfg.reward_money.toLocaleString()} +${cfg.reward_balls}玉`, '#0a0', 3000);
+            pk_updateUI();
+            setTimeout(() => closeAdModal(), 1500);
+        }
+    }, 1000);
+}
+
+function closeAdModal() {
+    if (adTimer) { clearInterval(adTimer); adTimer=null; }
+    document.getElementById('ad-modal').style.display = 'none';
+}
+
+function openModal(id) {
+    if (id==='admin-modal') {
+        document.getElementById('admin-auth-area').style.display = 'block';
+        document.getElementById('admin-panel-ui').style.display  = 'none';
+        document.getElementById('admin-pw').value = '';
+    }
+    document.getElementById(id).style.display = 'flex';
+}
+
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function authAdmin() {
+    if (!document.getElementById('admin-pw').value.includes('ryo1031')) return alert('コードが違う');
+    document.getElementById('admin-panel-ui').style.display  = 'block';
+    document.getElementById('admin-auth-area').style.display = 'none';
+    document.getElementById('adm-kakuhen-prob').value = (PK_G.kakuhenProb*100).toFixed(0);
+    document.getElementById('adm-normal-prob').value  = (PK_G.normalProb*100).toFixed(0);
+    document.getElementById('adm-gold-prob').value    = (PK_G.goldProb*100).toFixed(0);
+    document.getElementById('adm-silver-rate').value  = PK_G.silverRate;
+    document.getElementById('adm-gold-rate').value    = PK_G.goldRate;
+    document.getElementById('adm-luck-multi').value   = PK_G.luckMulti;
+}
+
+function applyAdminSelf() {
+    const m = parseInt(document.getElementById('adm-money').value);
+    const b = parseInt(document.getElementById('adm-balls').value);
+    if (!isNaN(m)) money=m;
+    if (!isNaN(b)) balls=b;
+    pk_updateUI(); alert('書き換えた！');
+}
+
+function distributeGift() {
+    const m = parseInt(document.getElementById('adm-dist-money').value)||0;
+    const b = parseInt(document.getElementById('adm-dist-balls').value)||0;
+    if (!m&&!b) return alert('金額か玉数を入れてくれ');
+    pk_pk_db.ref('users').once('value', snap => {
+        snap.forEach(u => pk_db.ref('gifts/'+u.key).push({money:m, balls:b}));
+        alert(`配布完了！ $${m.toLocaleString()} + ${b}玉`);
+    });
+}
+
+function postNews() {
+    const msg = document.getElementById('adm-news-input').value.trim();
+    if (!msg) return alert('内容を入れてくれ');
+    pk_pk_db.ref('system/news').once('value', snap => {
+        const existing = (snap.val()&&snap.val().messages) ? snap.val().messages : [];
+        const updated = [{text:msg, timestamp:Date.now()}, ...existing].slice(0,5);
+        pk_pk_db.ref('system/news').set({messages:updated});
+        document.getElementById('adm-news-input').value = '';
+        alert('投稿完了！');
+    });
+}
+
+function clearNews() {
+    pk_pk_db.ref('system/news').set({messages:[]});
+    alert('ニュースをクリアした');
+}
+
+function applyPayouts() {
+    const settings = {
+        kakuhen_prob: parseFloat(document.getElementById('adm-kakuhen-prob').value)/100,
+        normal_prob:  parseFloat(document.getElementById('adm-normal-prob').value)/100,
+        gold_prob:    parseFloat(document.getElementById('adm-gold-prob').value)/100,
+        silver_rate:  parseInt(document.getElementById('adm-silver-rate').value),
+        gold_rate:    parseInt(document.getElementById('adm-gold-rate').value),
+        luck_multi:   PK_G.luckMulti
+    };
+    pk_pk_db.ref('system/settings').set(settings);
+    alert('配当を全員に反映した！');
+}
+
+let _lastEventTitle = null;
+let _eventClearTimer = null;
+
+function renderEventPanel(d) {
+    const el = document.getElementById('event-panel');
+    const section = el ? el.closest('.panel-section') : null;
+    if (!el) return;
+
+    if (!d || !d.title) {
+        el.innerHTML = '<div class="no-event" style="color:#444;font-style:italic;">現在開催中のイベントはないぞ</div>';
+        if (section) section.classList.remove('event-active');
+        return;
+    }
+
+    const current = d.current || 0;
+    const goal    = d.goal || 1;
+    const pct     = Math.min(current / goal * 100, 100).toFixed(1);
+    const done    = current >= goal;
+
+    // 新イベント開始トースト
+    if (_lastEventTitle !== d.title) {
+        _lastEventTitle = d.title;
+        if (!done) toast(`🎉 イベント開始！「${d.title}」目標: $${goal.toLocaleString()}`, '#f55', 4000);
+    }
+
+    // パネルを光らせる
+    if (section) section.classList.toggle('event-active', !done);
+
+    el.innerHTML = `
+        <div class="event-title" style="font-size:13px;margin-bottom:6px;">🎉 ${d.title}</div>
+        ${done
+            ? `<div class="event-complete">🏆 目標達成！おめでとう！</div>`
+            : `<div class="event-progress-wrap"><div class="event-progress-bar" style="width:${pct}%"></div></div>`
+        }
+        <div class="event-amount" style="margin-top:5px;">
+            <span>💰 $${current.toLocaleString()}</span>
+            <span>🎯 $${goal.toLocaleString()}</span>
+        </div>
+        <div style="text-align:center;color:#ff0;font-size:10px;margin-top:4px;">${pct}% 達成${d.bonus ? ` ／ ボーナス: $${parseInt(d.bonus).toLocaleString()}` : ''}</div>
+    `;
+
+    // 達成後30秒でFirebaseから自動削除
+    if (done) {
+        if (section) section.classList.remove('event-active');
+        if (_eventClearTimer) clearTimeout(_eventClearTimer);
+        _eventClearTimer = setTimeout(() => {
+            pk_pk_db.ref('system/event').remove();
+            _eventClearTimer = null;
+        }, 30000);
+    }
+}
+
+function postEvent() {
+    const title = document.getElementById('adm-event-title').value.trim();
+    const goal  = parseInt(document.getElementById('adm-event-goal').value);
+    const bonus = parseInt(document.getElementById('adm-event-bonus').value) || 0;
+    if (!title) return alert('イベント名を入れてくれ');
+    if (isNaN(goal) || goal <= 0) return alert('目標金額を入れてくれ');
+    pk_pk_db.ref('system/event').set({title, goal, bonus, current: 0, timestamp: Date.now()});
+    document.getElementById('adm-event-title').value = '';
+    document.getElementById('adm-event-goal').value  = '';
+    document.getElementById('adm-event-bonus').value = '';
+    alert(`イベント「${title}」開始！`);
+}
+
+function clearEvent() {
+    if (!confirm('イベントを終了する？')) return;
+    pk_pk_db.ref('system/event').remove();
+    alert('イベントを終了した');
+}
+
+function applyLuckMulti() {
+    const lm = parseFloat(document.getElementById('adm-luck-multi').value);
+    if (isNaN(lm)||lm<0) return alert('正しい値を入れてくれ');
+    pk_pk_db.ref('system/settings').update({luck_multi:lm});
+    alert(`ラックマルチ x${lm} を全員に反映した！`);
+}
+
+function onLogin(user) {
+    currentUser = user;
+    pk_initData();
+    if (debt>0) {
+        const interest = Math.floor(debt*0.10);
+        debt+=interest;
+        setTimeout(() => toast(`💀 利息 +$${interest.toLocaleString()} 加算！ 残債: $${debt.toLocaleString()}`, '#f44', 3000), 1000);
+    }
+    // サーバー統計: プレイヤー数更新
+    pk_pk_db.ref('users').once('value', snap => {
+        const cnt = snap.numChildren ? snap.numChildren() : 0;
+        pk_pk_db.ref('system/server_stats').update({ total_players: cnt });
+    });
+    document.getElementById('login-screen').style.display      = 'none';
+    document.getElementById('pachinko-container').style.display = 'flex';
+    document.getElementById('news-bar').style.display          = 'flex';
+    pk_updateUI();
+    setupCanvas();
+    draw();
+    setTimeout(updateRanking, 600);
+    listenGifts();
+}
+
+// ===== Firebase初期化＆起動 =====
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src=src; s.onload=resolve; s.onerror=reject;
+        document.head.appendChild(s);
+    });
+}
+
+async function startApp() {
+    await loadScript('https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js');
+    await loadScript('https://www.gstatic.com/firebasejs/9.1.3/firebase-auth-compat.js');
+    await loadScript('https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js');
+    const pachiApp = firebase.apps.find(a=>a.name==='pachinko') ||
+        firebase.initializeApp({
+            apiKey: "AIzaSyA10j1O95LaPI_QrfqdalapIomXmzXRCms",
+            authDomain: "patinnko2.firebaseapp.com",
+            databaseURL: "https://patinnko2-default-rtdb.firebaseio.com",
+            projectId: "patinnko2",
+            storageBucket: "patinnko2.firebasestorage.app",
+            messagingSenderId: "1084492073320",
+            appId: "1:1084492073320:web:f6430e8a6fa1300c8c6edd"
+        }, 'pachinko');
+    pk_auth = window.SHARED_AUTH || pachiApp.auth();
+    pk_db   = pachiApp.database();
+
+    // Firebaseリアルタイムリスナー
+    pk_pk_db.ref('system/settings').on('value', snap => {
+        const d = snap.val() || {};
+        if (d.kakuhen_prob !== undefined) PK_G.kakuhenProb = d.kakuhen_prob;
+        if (d.normal_prob  !== undefined) PK_G.normalProb  = d.normal_prob;
+        if (d.gold_prob    !== undefined) PK_G.goldProb    = d.gold_prob;
+        if (d.silver_rate  !== undefined) PK_G.silverRate  = d.silver_rate;
+        if (d.gold_rate    !== undefined) PK_G.goldRate    = d.gold_rate;
+        if (d.luck_multi   !== undefined) PK_G.luckMulti   = d.luck_multi;
+        if (currentUser) pk_updateUI();
+    });
+    pk_pk_db.ref('system/server_stats').on('value', snap => {
+        const d = snap.val() || {};
+        const el = document.getElementById('server-stats-panel');
+        if (!el) return;
+        el.innerHTML = `
+            <div>🎯 総発射数: <b>${(d.total_shots||0).toLocaleString()}発</b></div>
+            <div>💴 総換金額: <b>$${(d.total_exchange||0).toLocaleString()}</b></div>
+            <div>👥 総プレイヤー数: <b>${(d.total_players||0).toLocaleString()}人</b></div>
+        `;
+    });
+
+    pk_pk_db.ref('system/event').on('value', snap => {
+        renderEventPanel(snap.val());
+    });
+
+    pk_pk_db.ref('system/news').on('value', snap => {
+        const data = snap.val();
+        updateTicker((data&&data.messages) ? data.messages : []);
+    });
+
+    // ログイン状態監視
+    pk_auth.onAuthStateChanged(user => { if (user) onLogin(user); });
+
+    // ログインボタン
+    document.getElementById('google-login-btn').addEventListener('click', () => {
+        pk_auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(r => onLogin(r.user));
+    });
+
+    // 動的要素のイベント委譲
+    document.addEventListener('click', e => {
+        const el = e.target.closest('[data-action]');
+        if (!el) return;
+        const action = el.dataset.action;
+        if (action==='item')  itemAction(el.dataset.id, parseInt(el.dataset.price), el.dataset.type);
+        if (action==='loan')  takeLoan(el.dataset.id);
+        if (action==='claim') claimMission(el.dataset.id, parseInt(el.dataset.rm), parseInt(el.dataset.rb));
+    });
+
+    // 静的ボタンのバインド
+    const b = (id, fn) => { const el=document.getElementById(id); if(el) el.addEventListener('click', fn); };
+    b('btn-buy-balls',   () => buyBalls());
+    b('btn-custom-loan', () => takeCustomLoan());
+    b('btn-repay',       () => repayDebt(false));
+    b('btn-repay-all',   () => repayDebt(true));
+    b('btn-ex-bronze',   () => exchangeSingle('bronze'));
+    b('btn-ex-silver',   () => exchangeSingle('silver'));
+    b('btn-ex-gold',     () => exchangeSingle('gold'));
+    b('btn-gift',        () => openModal('gift-modal'));
+    b('btn-ad',          () => watchAd());
+    b('btn-admin',       () => openModal('admin-modal'));
+    b('btn-reset',       () => softReset());
+    b('btn-close-gift',  () => closeModal('gift-modal'));
+    b('ad-watch-btn',    () => startAdWatch());
+    b('btn-close-ad',    () => closeAdModal());
+    b('btn-auth-admin',  () => authAdmin());
+    b('btn-adm-self',    () => applyAdminSelf());
+    b('btn-adm-dist',    () => distributeGift());
+    b('btn-adm-news',    () => postNews());
+    b('btn-adm-clear',   () => clearNews());
+    b('btn-adm-payouts', () => applyPayouts());
+    b('btn-adm-luck',    () => applyLuckMulti());
+    b('btn-close-admin',      () => closeModal('admin-modal'));
+    b('btn-adm-event-post',  () => postEvent());
+    b('btn-adm-event-clear', () => clearEvent());
+}
+
+startApp();
 
 window.navTo = page => {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.page===page));
