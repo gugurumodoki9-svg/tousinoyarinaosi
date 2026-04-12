@@ -3238,15 +3238,21 @@ window.toggleUpgSection = (id) => {
   if (el) el.classList.toggle('open');
 };
 
-
 function initPachinko() {
   if (window._pkInited) return;
   window._pkInited = true;
-  window.SHARED_CASH = undefined;
   startApp();
 }
 
-// Firebase: BULLRUNの共通auth/dbを使用
+const firebaseConfig = {
+    apiKey: "AIzaSyA10j1O95LaPI_QrfqdalapIomXmzXRCms",
+    authDomain: "patinnko2.firebaseapp.com",
+    databaseURL: "https://patinnko2-default-rtdb.firebaseio.com",
+    projectId: "patinnko2",
+    storageBucket: "patinnko2.firebasestorage.app",
+    messagingSenderId: "1084492073320",
+    appId: "1:1084492073320:web:f6430e8a6fa1300c8c6edd"
+};
 
 let pk_auth, pk_db;
 let money, balls, inventory, ownedItems, equippedTool, activeSkin;
@@ -3296,7 +3302,7 @@ function pk_renderHistory() {
     ).join('');
 }
 
-let PK_G = { kakuhenProb:0.45, normalProb:0.08, goldProb:0.30, silverRate:500, goldRate:2000, luckMulti:1 };
+let G = { kakuhenProb:0.45, normalProb:0.08, goldProb:0.30, silverRate:500, goldRate:2000, luckMulti:1 };
 
 const PK_ITEMS = {
     tools: [
@@ -3400,12 +3406,12 @@ function pk_saveData() {
     localStorage.setItem('p_combo',  comboCount);
     localStorage.setItem('p_shots',  totalShots);
     if (currentUser) {
-        pk_pk_db.ref('users/' + currentUser.uid).set({name: currentUser.displayName, money});
+        pk_db.ref('users/' + currentUser.uid).set({name: currentUser.displayName, money});
         // 発射数差分をサーバーに加算
         const prevShots = parseInt(localStorage.getItem('p_shots_synced') || '0');
         const diff = totalShots - prevShots;
         if (diff > 0) {
-            pk_pk_db.ref('system/server_stats/total_shots').transaction(v => (v || 0) + diff);
+            pk_db.ref('system/server_stats/total_shots').transaction(v => (v || 0) + diff);
             localStorage.setItem('p_shots_synced', totalShots);
         }
     }
@@ -3417,7 +3423,7 @@ function pk_updateUI() {
     document.getElementById('combo-count').innerText   = comboCount;
     const stockMax = equippedTool==='t-triple' ? 8 : 4;
     document.getElementById('stock-lamps').innerText   = '●'.repeat(stock) + '○'.repeat(stockMax - stock);
-    document.getElementById('luck-multi-display').innerText = `LUCK x${PK_G.luckMulti}`;
+    document.getElementById('luck-multi-display').innerText = `LUCK x${G.luckMulti}`;
     document.getElementById('kakuhen-lamp').innerText  = isKakuhen ? '🔥 確変中 🔥' : '通常';
     document.getElementById('pachinko-machine').className = isKakuhen ? 'kakuhen-mode' : '';
     document.getElementById('p-bronze').innerText = inventory.bronze;
@@ -3484,7 +3490,7 @@ function renderMissions() {
 }
 
 function updateRanking() {
-    pk_pk_db.ref('users').on('value', snap => {
+    pk_db.ref('users').on('value', snap => {
         const arr = [];
         snap.forEach(s => { const v=s.val(); if(v&&v.name&&v.money!==undefined) arr.push(v); });
         arr.sort((a,b) => b.money - a.money);
@@ -3495,7 +3501,7 @@ function updateRanking() {
 }
 
 function listenGifts() {
-    pk_pk_db.ref('gifts/' + currentUser.uid).on('value', snap => {
+    pk_db.ref('gifts/' + currentUser.uid).on('value', snap => {
         const list = document.getElementById('gift-list');
         list.innerHTML = '';
         let count = 0;
@@ -3509,7 +3515,7 @@ function listenGifts() {
             btn.innerText = `🎁 $${(d.money||0).toLocaleString()} + ${d.balls||0}玉`;
             btn.onclick = () => {
                 money += (d.money||0); balls += (d.balls||0);
-                pk_pk_db.ref('gifts/'+currentUser.uid+'/'+g.key).remove();
+                pk_db.ref('gifts/'+currentUser.uid+'/'+g.key).remove();
                 toast(`🎁 受け取った！ +$${(d.money||0).toLocaleString()} +${d.balls||0}玉`, '#9400d3', 2500);
                 pk_updateUI();
             };
@@ -3520,7 +3526,7 @@ function listenGifts() {
     });
 }
 
-function updateTicker(msgs) {
+function pk_updateTicker(msgs) {
     const el = document.getElementById('news-ticker-text');
     if (!el) return;
     const text = msgs.length > 0
@@ -3606,14 +3612,14 @@ function checkWin() {
 
     if (allMatch) {
         // 3つ揃い → 必ず大当たり（金/銀は確率で分岐）
-        if (Math.random() < PK_G.goldProb) {
-            applyLuckBonus(PK_G.goldRate);
+        if (Math.random() < G.goldProb) {
+            applyLuckBonus(G.goldRate);
             inventory.gold++; isKakuhen=true; comboCount++;
             maxCombo = Math.max(maxCombo, comboCount);
             addHistory('gold');
             slotWinEffect('gold');
         } else {
-            applyLuckBonus(PK_G.silverRate);
+            applyLuckBonus(G.silverRate);
             inventory.silver++; isKakuhen=false; comboCount=0;
             addHistory('silver');
             slotWinEffect('silver');
@@ -3631,7 +3637,7 @@ function checkWin() {
 }
 
 function applyLuckBonus(base) {
-    const LM = PK_G.luckMulti;
+    const LM = G.luckMulti;
     if (LM===1) return base;
     if (LM>1) {
         const chance = Math.min((LM-1)*0.1, 1.0);
@@ -3649,28 +3655,28 @@ function buyBalls() {
 
 function exchangeSingle(type) {
     const goldMult = equippedTool==='t-gravity' ? 3 : 1;
-    const rate = type==='gold' ? PK_G.goldRate*goldMult : type==='silver' ? PK_G.silverRate : 100;
+    const rate = type==='gold' ? G.goldRate*goldMult : type==='silver' ? G.silverRate : 100;
     if (inventory[type]<=0) return;
     const earned = inventory[type] * rate;
     money += earned;
     inventory[type] = 0;
     // サーバー統計に加算
-    pk_pk_db.ref('system/server_stats').once('value', ssnap => {
+    pk_db.ref('system/server_stats').once('value', ssnap => {
         const ss = ssnap.val() || {};
-        pk_pk_db.ref('system/server_stats').update({
+        pk_db.ref('system/server_stats').update({
             total_exchange: (ss.total_exchange || 0) + earned
         });
     });
     // イベント進捗に加算
-    pk_pk_db.ref('system/event').once('value', snap => {
+    pk_db.ref('system/event').once('value', snap => {
         const d = snap.val();
         if (d && d.title && d.current < d.goal) {
             const newVal = (d.current || 0) + earned;
-            pk_pk_db.ref('system/event/current').set(newVal);
+            pk_db.ref('system/event/current').set(newVal);
             // 目標達成チェック
             if (newVal >= d.goal && d.bonus > 0) {
                 // 全員にボーナス配布
-                pk_pk_db.ref('users').once('value', usnap => {
+                pk_db.ref('users').once('value', usnap => {
                     usnap.forEach(u => pk_db.ref('gifts/' + u.key).push({money: d.bonus, balls: 0}));
                 });
                 toast(`🏆 イベント目標達成！全員に$${parseInt(d.bonus).toLocaleString()}配布！`, '#ff0', 5000);
@@ -3793,7 +3799,7 @@ function closeAdModal() {
     document.getElementById('ad-modal').style.display = 'none';
 }
 
-function openModal(id) {
+function pk_openModal(id) {
     if (id==='admin-modal') {
         document.getElementById('admin-auth-area').style.display = 'block';
         document.getElementById('admin-panel-ui').style.display  = 'none';
@@ -3802,18 +3808,18 @@ function openModal(id) {
     document.getElementById(id).style.display = 'flex';
 }
 
-function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function pk_closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
 function authAdmin() {
     if (!document.getElementById('admin-pw').value.includes('ryo1031')) return alert('コードが違う');
     document.getElementById('admin-panel-ui').style.display  = 'block';
     document.getElementById('admin-auth-area').style.display = 'none';
-    document.getElementById('adm-kakuhen-prob').value = (PK_G.kakuhenProb*100).toFixed(0);
-    document.getElementById('adm-normal-prob').value  = (PK_G.normalProb*100).toFixed(0);
-    document.getElementById('adm-gold-prob').value    = (PK_G.goldProb*100).toFixed(0);
-    document.getElementById('adm-silver-rate').value  = PK_G.silverRate;
-    document.getElementById('adm-gold-rate').value    = PK_G.goldRate;
-    document.getElementById('adm-luck-multi').value   = PK_G.luckMulti;
+    document.getElementById('adm-kakuhen-prob').value = (G.kakuhenProb*100).toFixed(0);
+    document.getElementById('adm-normal-prob').value  = (G.normalProb*100).toFixed(0);
+    document.getElementById('adm-gold-prob').value    = (G.goldProb*100).toFixed(0);
+    document.getElementById('adm-silver-rate').value  = G.silverRate;
+    document.getElementById('adm-gold-rate').value    = G.goldRate;
+    document.getElementById('adm-luck-multi').value   = G.luckMulti;
 }
 
 function applyAdminSelf() {
@@ -3828,7 +3834,7 @@ function distributeGift() {
     const m = parseInt(document.getElementById('adm-dist-money').value)||0;
     const b = parseInt(document.getElementById('adm-dist-balls').value)||0;
     if (!m&&!b) return alert('金額か玉数を入れてくれ');
-    pk_pk_db.ref('users').once('value', snap => {
+    pk_db.ref('users').once('value', snap => {
         snap.forEach(u => pk_db.ref('gifts/'+u.key).push({money:m, balls:b}));
         alert(`配布完了！ $${m.toLocaleString()} + ${b}玉`);
     });
@@ -3837,17 +3843,17 @@ function distributeGift() {
 function postNews() {
     const msg = document.getElementById('adm-news-input').value.trim();
     if (!msg) return alert('内容を入れてくれ');
-    pk_pk_db.ref('system/news').once('value', snap => {
+    pk_db.ref('system/news').once('value', snap => {
         const existing = (snap.val()&&snap.val().messages) ? snap.val().messages : [];
         const updated = [{text:msg, timestamp:Date.now()}, ...existing].slice(0,5);
-        pk_pk_db.ref('system/news').set({messages:updated});
+        pk_db.ref('system/news').set({messages:updated});
         document.getElementById('adm-news-input').value = '';
         alert('投稿完了！');
     });
 }
 
 function clearNews() {
-    pk_pk_db.ref('system/news').set({messages:[]});
+    pk_db.ref('system/news').set({messages:[]});
     alert('ニュースをクリアした');
 }
 
@@ -3858,9 +3864,9 @@ function applyPayouts() {
         gold_prob:    parseFloat(document.getElementById('adm-gold-prob').value)/100,
         silver_rate:  parseInt(document.getElementById('adm-silver-rate').value),
         gold_rate:    parseInt(document.getElementById('adm-gold-rate').value),
-        luck_multi:   PK_G.luckMulti
+        luck_multi:   G.luckMulti
     };
-    pk_pk_db.ref('system/settings').set(settings);
+    pk_db.ref('system/settings').set(settings);
     alert('配当を全員に反映した！');
 }
 
@@ -3910,7 +3916,7 @@ function renderEventPanel(d) {
         if (section) section.classList.remove('event-active');
         if (_eventClearTimer) clearTimeout(_eventClearTimer);
         _eventClearTimer = setTimeout(() => {
-            pk_pk_db.ref('system/event').remove();
+            pk_db.ref('system/event').remove();
             _eventClearTimer = null;
         }, 30000);
     }
@@ -3922,7 +3928,7 @@ function postEvent() {
     const bonus = parseInt(document.getElementById('adm-event-bonus').value) || 0;
     if (!title) return alert('イベント名を入れてくれ');
     if (isNaN(goal) || goal <= 0) return alert('目標金額を入れてくれ');
-    pk_pk_db.ref('system/event').set({title, goal, bonus, current: 0, timestamp: Date.now()});
+    pk_db.ref('system/event').set({title, goal, bonus, current: 0, timestamp: Date.now()});
     document.getElementById('adm-event-title').value = '';
     document.getElementById('adm-event-goal').value  = '';
     document.getElementById('adm-event-bonus').value = '';
@@ -3931,14 +3937,14 @@ function postEvent() {
 
 function clearEvent() {
     if (!confirm('イベントを終了する？')) return;
-    pk_pk_db.ref('system/event').remove();
+    pk_db.ref('system/event').remove();
     alert('イベントを終了した');
 }
 
 function applyLuckMulti() {
     const lm = parseFloat(document.getElementById('adm-luck-multi').value);
     if (isNaN(lm)||lm<0) return alert('正しい値を入れてくれ');
-    pk_pk_db.ref('system/settings').update({luck_multi:lm});
+    pk_db.ref('system/settings').update({luck_multi:lm});
     alert(`ラックマルチ x${lm} を全員に反映した！`);
 }
 
@@ -3951,9 +3957,9 @@ function onLogin(user) {
         setTimeout(() => toast(`💀 利息 +$${interest.toLocaleString()} 加算！ 残債: $${debt.toLocaleString()}`, '#f44', 3000), 1000);
     }
     // サーバー統計: プレイヤー数更新
-    pk_pk_db.ref('users').once('value', snap => {
+    pk_db.ref('users').once('value', snap => {
         const cnt = snap.numChildren ? snap.numChildren() : 0;
-        pk_pk_db.ref('system/server_stats').update({ total_players: cnt });
+        pk_db.ref('system/server_stats').update({ total_players: cnt });
     });
     document.getElementById('login-screen').style.display      = 'none';
     document.getElementById('pachinko-container').style.display = 'flex';
@@ -3978,31 +3984,23 @@ async function startApp() {
     await loadScript('https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js');
     await loadScript('https://www.gstatic.com/firebasejs/9.1.3/firebase-auth-compat.js');
     await loadScript('https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js');
-    const pachiApp = firebase.apps.find(a=>a.name==='pachinko') ||
-        firebase.initializeApp({
-            apiKey: "AIzaSyA10j1O95LaPI_QrfqdalapIomXmzXRCms",
-            authDomain: "patinnko2.firebaseapp.com",
-            databaseURL: "https://patinnko2-default-rtdb.firebaseio.com",
-            projectId: "patinnko2",
-            storageBucket: "patinnko2.firebasestorage.app",
-            messagingSenderId: "1084492073320",
-            appId: "1:1084492073320:web:f6430e8a6fa1300c8c6edd"
-        }, 'pachinko');
-    pk_auth = window.SHARED_AUTH || pachiApp.auth();
-    pk_db   = pachiApp.database();
+    const _pkApp = firebase.apps.find(a=>a.name==='pachinko') ||
+        firebase.initializeApp(firebaseConfig, 'pachinko');
+    pk_auth = _pkApp.auth();
+    pk_db   = _pkApp.database();
 
     // Firebaseリアルタイムリスナー
-    pk_pk_db.ref('system/settings').on('value', snap => {
+    pk_db.ref('system/settings').on('value', snap => {
         const d = snap.val() || {};
-        if (d.kakuhen_prob !== undefined) PK_G.kakuhenProb = d.kakuhen_prob;
-        if (d.normal_prob  !== undefined) PK_G.normalProb  = d.normal_prob;
-        if (d.gold_prob    !== undefined) PK_G.goldProb    = d.gold_prob;
-        if (d.silver_rate  !== undefined) PK_G.silverRate  = d.silver_rate;
-        if (d.gold_rate    !== undefined) PK_G.goldRate    = d.gold_rate;
-        if (d.luck_multi   !== undefined) PK_G.luckMulti   = d.luck_multi;
+        if (d.kakuhen_prob !== undefined) G.kakuhenProb = d.kakuhen_prob;
+        if (d.normal_prob  !== undefined) G.normalProb  = d.normal_prob;
+        if (d.gold_prob    !== undefined) G.goldProb    = d.gold_prob;
+        if (d.silver_rate  !== undefined) G.silverRate  = d.silver_rate;
+        if (d.gold_rate    !== undefined) G.goldRate    = d.gold_rate;
+        if (d.luck_multi   !== undefined) G.luckMulti   = d.luck_multi;
         if (currentUser) pk_updateUI();
     });
-    pk_pk_db.ref('system/server_stats').on('value', snap => {
+    pk_db.ref('system/server_stats').on('value', snap => {
         const d = snap.val() || {};
         const el = document.getElementById('server-stats-panel');
         if (!el) return;
@@ -4013,13 +4011,13 @@ async function startApp() {
         `;
     });
 
-    pk_pk_db.ref('system/event').on('value', snap => {
+    pk_db.ref('system/event').on('value', snap => {
         renderEventPanel(snap.val());
     });
 
-    pk_pk_db.ref('system/news').on('value', snap => {
+    pk_db.ref('system/news').on('value', snap => {
         const data = snap.val();
-        updateTicker((data&&data.messages) ? data.messages : []);
+        pk_updateTicker((data&&data.messages) ? data.messages : []);
     });
 
     // ログイン状態監視
@@ -4049,11 +4047,11 @@ async function startApp() {
     b('btn-ex-bronze',   () => exchangeSingle('bronze'));
     b('btn-ex-silver',   () => exchangeSingle('silver'));
     b('btn-ex-gold',     () => exchangeSingle('gold'));
-    b('btn-gift',        () => openModal('gift-modal'));
+    b('btn-gift',        () => pk_openModal('gift-modal'));
     b('btn-ad',          () => watchAd());
-    b('btn-admin',       () => openModal('admin-modal'));
+    b('btn-admin',       () => pk_openModal('admin-modal'));
     b('btn-reset',       () => softReset());
-    b('btn-close-gift',  () => closeModal('gift-modal'));
+    b('btn-close-gift',  () => pk_closeModal('gift-modal'));
     b('ad-watch-btn',    () => startAdWatch());
     b('btn-close-ad',    () => closeAdModal());
     b('btn-auth-admin',  () => authAdmin());
@@ -4063,7 +4061,7 @@ async function startApp() {
     b('btn-adm-clear',   () => clearNews());
     b('btn-adm-payouts', () => applyPayouts());
     b('btn-adm-luck',    () => applyLuckMulti());
-    b('btn-close-admin',      () => closeModal('admin-modal'));
+    b('btn-close-admin',      () => pk_closeModal('admin-modal'));
     b('btn-adm-event-post',  () => postEvent());
     b('btn-adm-event-clear', () => clearEvent());
 }
