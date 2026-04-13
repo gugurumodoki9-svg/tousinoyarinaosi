@@ -3240,9 +3240,24 @@ window.toggleUpgSection = (id) => {
 };
 
 function initPachinko() {
-  if (window._pkInited) return;
-  window._pkInited = true;
-  startApp();
+  if (!window._pkInited) {
+    window._pkInited = true;
+    startApp(); // Firebase・リスナーは初回のみ
+  } else {
+    // 2回目以降: UIだけ更新
+    pk_updateUI();
+    pk_renderHistory();
+    pk_renderShop('pk-shop-tools', PK_ITEMS.tools, 't');
+    pk_renderShop('pk-shop-skins', PK_ITEMS.skins, 's');
+    pk_renderLoans();
+    pk_renderMissions();
+    pk_renderStats();
+    if (!pkAnimStarted) {
+      pkAnimStarted = true;
+      pkSetupCanvas2();
+      (function pkLoop(){ requestAnimationFrame(pkLoop); pkDrawCanvas2(); })();
+    }
+  }
 }
 
 const firebaseConfig = {
@@ -3273,7 +3288,7 @@ function addHistory(type) {
 }
 
 function slotWinEffect(type) {
-    const sc = document.getElementById('slot-container');
+    const sc = document.getElementById('pk-slot-container');
     const cls = type === 'gold' ? 'slot-win-gold' : 'slot-win-silver';
     sc.classList.add(cls);
     // シンボルをバウンド
@@ -3291,7 +3306,7 @@ function slotWinEffect(type) {
 }
 
 function pk_renderHistory() {
-    const el = document.getElementById('history-list');
+    const el = document.getElementById('pk-history-list');
     if (!el) return;
     if (matchHistory.length === 0) {
         el.innerHTML = '<span style="color:#444;font-size:10px;">まだ記録なし</span>';
@@ -3419,13 +3434,13 @@ function pk_saveData() {
 }
 
 function pk_updateUI() {
-    document.getElementById('money-display').innerText = money.toLocaleString();
+    document.getElementById('pk-money-display').innerText = money.toLocaleString();
     document.getElementById('balls-display').innerText = balls;
-    document.getElementById('combo-count').innerText   = comboCount;
+    document.getElementById('pk-combo-count').innerText   = comboCount;
     const stockMax = equippedTool==='t-triple' ? 8 : 4;
     document.getElementById('stock-lamps').innerText   = '●'.repeat(stock) + '○'.repeat(stockMax - stock);
     document.getElementById('luck-multi-display').innerText = `LUCK x${G.luckMulti}`;
-    document.getElementById('kakuhen-lamp').innerText  = isKakuhen ? '🔥 確変中 🔥' : '通常';
+    document.getElementById('pk-kakuhen-lamp').innerText  = isKakuhen ? '🔥 確変中 🔥' : '通常';
     document.getElementById('pachinko-machine').className = isKakuhen ? 'kakuhen-mode' : '';
     document.getElementById('p-bronze').innerText = inventory.bronze;
     document.getElementById('p-silver').innerText = inventory.silver;
@@ -3442,7 +3457,7 @@ function pk_updateUI() {
 }
 
 function renderStats() {
-    const el = document.getElementById('stats-panel');
+    const el = document.getElementById('pk-stats-panel');
     if (!el) return;
     el.innerHTML = `
         <div>🎯 総発射数: <b>${(totalShots||0).toLocaleString()}発</b></div>
@@ -3476,7 +3491,7 @@ function renderLoans() {
 
 function renderMissions() {
     const claimed = JSON.parse(localStorage.getItem('p_m_claimed') || '[]');
-    document.getElementById('mission-list').innerHTML = PK_MISSIONS.map(m => {
+    document.getElementById('pk-mission-list').innerHTML = PK_MISSIONS.map(m => {
         const done     = claimed.includes(m.id);
         const achieved = m.c();
         const claimable= achieved && !done;
@@ -3495,7 +3510,7 @@ function updateRanking() {
         const arr = [];
         snap.forEach(s => { const v=s.val(); if(v&&v.name&&v.money!==undefined) arr.push(v); });
         arr.sort((a,b) => b.money - a.money);
-        document.getElementById('ranking-list').innerHTML = arr.slice(0,5).map((u,i) =>
+        document.getElementById('pk-ranking-list').innerHTML = arr.slice(0,5).map((u,i) =>
             `<div class="rank-item"><span>${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${u.name}</span><span>$${u.money.toLocaleString()}</span></div>`
         ).join('') || '<div style="color:#555;padding:4px;">データなし</div>';
     });
@@ -3562,7 +3577,7 @@ function setupCanvas() {
 }
 
 function draw() {
-    const canvas = document.getElementById('pachinkoCanvas');
+    const canvas = document.getElementById('pk-canvas');
     const ctx = canvas.getContext('2d');
     const skin = PK_ITEMS.skins.find(s=>s.id===activeSkin) || PK_ITEMS.skins[0];
     ctx.fillStyle = skin.bg; ctx.fillRect(0,0,300,340);
@@ -3605,9 +3620,9 @@ function startSlot() {
 }
 
 function checkWin() {
-    const s1 = document.getElementById('s1').innerText;
-    const s2 = document.getElementById('s2').innerText;
-    const s3 = document.getElementById('s3').innerText;
+    const s1 = document.getElementById('pk-s1').innerText;
+    const s2 = document.getElementById('pk-s2').innerText;
+    const s3 = document.getElementById('pk-s3').innerText;
     const allMatch = (s1 === s2 && s2 === s3);
     const twoMatch = !allMatch && (s1 === s2 || s2 === s3);
 
@@ -3962,9 +3977,9 @@ function onLogin(user) {
         const cnt = snap.numChildren ? snap.numChildren() : 0;
         pk_db.ref('system/server_stats').update({ total_players: cnt });
     });
-    document.getElementById('login-screen').style.display      = 'none';
-    document.getElementById('pachinko-container').style.display = 'flex';
-    document.getElementById('news-bar').style.display          = 'flex';
+    // login-screen: 統合版では不要
+    // pk-container: 統合版では常に表示
+    // news-bar: 統合版では常に表示
     pk_updateUI();
     setupCanvas();
     draw();
@@ -4003,7 +4018,7 @@ async function startApp() {
     });
     pk_db.ref('system/server_stats').on('value', snap => {
         const d = snap.val() || {};
-        const el = document.getElementById('server-stats-panel');
+        const el = document.getElementById('pk-server-stats-panel');
         if (!el) return;
         el.innerHTML = `
             <div>🎯 総発射数: <b>${(d.total_shots||0).toLocaleString()}発</b></div>
@@ -4025,7 +4040,7 @@ async function startApp() {
     pk_auth.onAuthStateChanged(user => { if (user) onLogin(user); });
 
     // ログインボタン
-    document.getElementById('google-login-btn').addEventListener('click', () => {
+    document.getElementById('google-login-btn')?.addEventListener('click', () => {
         pk_auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(r => onLogin(r.user));
     });
 
@@ -4067,7 +4082,7 @@ async function startApp() {
     b('btn-adm-event-clear', () => clearEvent());
 }
 
-startApp();
+// startApp() は initPachinko() から呼ぶ
 
 // ══════════════════════════════════════════════
 //  COMPANY SYSTEM（起業・経営）
@@ -5186,7 +5201,11 @@ function ccInitScene() {
 }
 
 function initChinchiro() {
-  if (window._ccInited) return;
+  if (window._ccInited) {
+    // 2回目以降: データ再ロード＋UI更新だけ
+    if (typeof loadData === 'function') loadData();
+    return;
+  }
   window._ccInited = true;
 
     // 配当率グローバル変数
@@ -5200,7 +5219,7 @@ function initChinchiro() {
     // ニュースティッカー制御（全プレイヤーにリアルタイム反映）
     window.startNewsTicker = () => {
         const msgs = window.newsMessages;
-        const el = document.getElementById('news-ticker-text');
+        const el = document.getElementById('pk-news-ticker-text');
         if (!el) return;
         if (!msgs || msgs.length === 0) {
             // メッセージなし → デフォルトに戻す
