@@ -1892,7 +1892,14 @@ function drawMiniChart(ticker, history, isPos) {
 
 // 銘柄カラーパレット
 const STOCK_COLORS = [
-  '#448aff','#00e676','#ffd740','#ff1744','#e040fb','#ff6d00','#00bcd4','#69f0ae'
+  '#448aff', // TECH: 青
+  '#00e676', // BANK: 緑
+  '#ffd740', // AUTO: 金
+  '#ff1744', // PHRM: 赤
+  '#e040fb', // ENRG: 紫
+  '#ff9100', // FOOD: オレンジ
+  '#00e5ff', // GAME: シアン
+  '#69f0ae', // SHIP: 薄緑
 ];
 
 function drawOverviewChart() {
@@ -3720,7 +3727,9 @@ function drawSecretMiniChart(ticker, history, isPos) {
   if (history.length < 2) return;
   const min = Math.min(...history), max = Math.max(...history);
   const range = max - min || 1;
-  const color = isPos ? '#ff00ff' : '#880088';
+  const SECRET_MINI_COLORS = {'HACK':'#ff00ff','DRUG':'#ffff00','ARMS':'#00ffff','DARK':'#ff4400','VOID':'#44ff88'};
+  const baseColor = SECRET_MINI_COLORS[ticker] || '#ff00ff';
+  const color = isPos ? baseColor : baseColor + '88';
   const pts = history.map((v,i) => ({ x:(i/(history.length-1))*W, y:H-((v-min)/range)*(H-8)-4 }));
   ctx.beginPath(); ctx.moveTo(pts[0].x,H);
   pts.forEach(p => ctx.lineTo(p.x,p.y));
@@ -3747,7 +3756,7 @@ function drawSecretOverviewChart() {
   for(let i=1;i<3;i++){const y=(H/3)*i;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
   ctx.strokeStyle='rgba(255,0,255,0.2)'; ctx.setLineDash([4,4]);
   ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();ctx.setLineDash([]);
-  const colors=['#ff00ff','#ff44ff','#cc00cc','#ff77ff','#990099'];
+  const colors=['#ff00ff','#ffff00','#00ffff','#ff4400','#44ff88'];
   SECRET_STOCKS.forEach((s,si)=>{
     const hist=secretState.history[s.ticker]||[];
     if(hist.length<2)return;
