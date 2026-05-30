@@ -425,6 +425,50 @@ body.eco-mode body::after { display: none !important; }
 .konami-flash { animation:konamiFlash .5s ease; }
 @keyframes konamiFlash { 0%{background:var(--bg)} 50%{background:#1a0030} 100%{background:var(--bg)} }
 
+
+/* ═══ RESPONSIVE ═══ */
+.hamburger { display:none; position:fixed; top:14px; left:14px; z-index:300;
+  background:var(--panel); border:1px solid var(--border); border-radius:4px;
+  padding:8px 10px; cursor:pointer; font-size:18px; line-height:1; }
+.sidebar-overlay { display:none; position:fixed; inset:0; z-index:199;
+  background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
+
+@media (max-width: 768px) {
+  .hamburger { display:block; }
+  .sidebar {
+    position:fixed; left:-260px; top:0; z-index:200; height:100vh;
+    transition:left .25s ease; overflow-y:auto;
+  }
+  .sidebar.open { left:0; }
+  .sidebar-overlay.open { display:block; }
+  .main-content { padding:14px; }
+  #game-screen { flex-direction:column; }
+  .stocks-grid { grid-template-columns:1fr 1fr; gap:10px; }
+  .modal { width:92vw; padding:20px; }
+  .page-title { font-size:14px; margin-bottom:14px; padding-top:36px; }
+  .overview-chart-header { flex-direction:column; gap:6px; }
+  .overview-legend { gap:6px 10px; }
+  .gacha-grid { grid-template-columns:1fr; }
+  .realestate-grid, .skill-grid, .items-grid { grid-template-columns:1fr 1fr; gap:10px; }
+  .rank-item { padding:10px 12px; }
+  .history-item { flex-wrap:wrap; gap:8px; }
+  .holdings-table { font-size:11px; }
+  .holdings-table th, .holdings-table td { padding:8px 6px; }
+  .company-hero { padding:18px; }
+  .upg-grid { grid-template-columns:1fr; }
+  .auction-grid { grid-template-columns:1fr 1fr; }
+  .eco-btn { bottom:10px; right:10px; padding:5px 10px; font-size:10px; }
+  .back-to-lobby { font-size:11px; padding:6px 10px; }
+  #overview-canvas { height:120px; }
+}
+@media (max-width: 480px) {
+  .stocks-grid { grid-template-columns:1fr; }
+  .realestate-grid, .skill-grid, .items-grid { grid-template-columns:1fr; }
+  .auction-grid { grid-template-columns:1fr; }
+  .portfolio-summary { padding:12px 16px; }
+  .ps-value { font-size:17px; }
+}
+
 /* LOADING */
 #loading { position: fixed; inset: 0; z-index: 200; background: var(--bg); display: flex; align-items: center; justify-content: center; }
 .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; }
@@ -493,7 +537,9 @@ body.eco-mode body::after { display: none !important; }
 
 <!-- GAME -->
 <div id="game-screen" class="screen">
-  <aside class="sidebar">
+  <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()">☰</button>
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="main-sidebar">
     <div class="sidebar-logo">BULLRUN <span>投資シミュレーター</span></div>
     <div class="user-card">
       <div class="user-name" id="sb-username">---</div>
@@ -869,7 +915,12 @@ body.eco-mode body::after { display: none !important; }
       <!-- 隠し株 -->
       <div style="margin-bottom:28px">
         <div style="font-family:var(--font-mono);font-size:11px;color:#ff00ff;letter-spacing:2px;margin-bottom:12px">📈 DARK STOCKS</div>
-        <div class="stocks-grid" id="secret-stocks-grid"></div>
+        <!-- 隠し株総合チャート -->
+      <div style="background:var(--panel);border:1px solid #ff00ff;border-radius:6px;padding:16px 18px;margin-bottom:16px">
+        <div style="font-family:var(--font-mono);font-size:11px;color:#ff00ff;letter-spacing:2px;margin-bottom:10px">📊 DARK CHART — 基準値比推移</div>
+        <canvas id="secret-overview-canvas" style="display:block;width:100%;height:120px"></canvas>
+      </div>
+      <div class="stocks-grid" id="secret-stocks-grid"></div>
       </div>
 
       <!-- ミニゲーム：数字当て -->
@@ -3594,6 +3645,7 @@ async function grantSecretTitle(id) {
 function initSecretPage() {
   updateSecretVisits();
   renderSecretStocks();
+  drawSecretOverviewChart();
   renderSecretTitles();
   startSecretPriceTick();
   refreshDarkAuction();
@@ -3614,6 +3666,7 @@ function startSecretPriceTick() {
         h.push(next); if (h.length > 20) h.shift();
       });
       renderSecretStocks();
+      drawSecretOverviewChart();
     }
   }, 3000);
 }
@@ -3621,26 +3674,93 @@ function startSecretPriceTick() {
 function renderSecretStocks() {
   const grid = document.getElementById('secret-stocks-grid');
   if (!grid) return;
-  grid.innerHTML = '';
   SECRET_STOCKS.forEach(s => {
     const price = secretState.prices[s.ticker] || s.base;
     const history = secretState.history[s.ticker] || [s.base];
     const prev = history.length >= 2 ? history[history.length-2] : price;
     const diff = price - prev;
     const isPos = diff >= 0;
-    const card = document.createElement('div');
-    card.className = 'secret-stock-card';
-    card.onclick = () => openSecretModal(s.ticker);
-    card.innerHTML =
-      '<div class="stock-header">'
-      + '<div><div class="stock-ticker" style="color:#ff00ff">' + s.ticker + '</div>'
-      + '<div class="stock-name">' + s.name + '</div></div>'
-      + '<div class="stock-sector" style="background:rgba(255,0,255,.1);color:#ff00ff">🔒</div>'
-      + '</div>'
-      + '<div class="stock-price" style="color:' + (isPos?'var(--green)':'var(--red)') + '">' + fmt(price) + '</div>'
-      + '<div class="stock-change ' + (isPos?'pos':'neg') + '">'
-      + (isPos?'▲':'▼') + ' ' + fmt(Math.abs(diff)) + ' (' + (Math.abs((price-prev)/prev*100)).toFixed(1) + '%)</div>';
-    grid.appendChild(card);
+    let card = document.getElementById('scard-' + s.ticker);
+    if (!card) {
+      card = document.createElement('div');
+      card.className = 'secret-stock-card';
+      card.id = 'scard-' + s.ticker;
+      card.onclick = () => openSecretModal(s.ticker);
+      card.innerHTML =
+        '<div class="stock-header">'
+        + '<div><div class="stock-ticker" style="color:#ff00ff">' + s.ticker + '</div>'
+        + '<div class="stock-name">' + s.name + '</div></div>'
+        + '<div class="stock-sector" style="background:rgba(255,0,255,.1);color:#ff00ff">🔒</div>'
+        + '</div>'
+        + '<div class="stock-price" id="sprice-' + s.ticker + '"></div>'
+        + '<div class="stock-change" id="schange-' + s.ticker + '"></div>'
+        + '<div class="mini-chart" id="smchart-' + s.ticker + '" style="height:48px;margin-top:10px"></div>';
+      grid.appendChild(card);
+    }
+    const priceEl = document.getElementById('sprice-' + s.ticker);
+    const changeEl = document.getElementById('schange-' + s.ticker);
+    if (priceEl) { priceEl.textContent = fmt(price); priceEl.style.color = isPos ? 'var(--green)' : 'var(--red)'; }
+    if (changeEl) {
+      changeEl.textContent = (isPos?'▲':'▼') + ' ' + fmt(Math.abs(diff)) + ' (' + (Math.abs((price-prev)/prev*100)).toFixed(1) + '%)';
+      changeEl.className = 'stock-change ' + (isPos?'pos':'neg');
+    }
+    drawSecretMiniChart(s.ticker, history, isPos);
+  });
+}
+
+function drawSecretMiniChart(ticker, history, isPos) {
+  const wrap = document.getElementById('smchart-' + ticker);
+  if (!wrap) return;
+  const W = wrap.offsetWidth || 240, H = 48;
+  let canvas = wrap.querySelector('canvas');
+  if (!canvas) { canvas = document.createElement('canvas'); wrap.appendChild(canvas); }
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  if (history.length < 2) return;
+  const min = Math.min(...history), max = Math.max(...history);
+  const range = max - min || 1;
+  const color = isPos ? '#ff00ff' : '#880088';
+  const pts = history.map((v,i) => ({ x:(i/(history.length-1))*W, y:H-((v-min)/range)*(H-8)-4 }));
+  ctx.beginPath(); ctx.moveTo(pts[0].x,H);
+  pts.forEach(p => ctx.lineTo(p.x,p.y));
+  ctx.lineTo(pts[pts.length-1].x,H); ctx.closePath();
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,color+'55'); grad.addColorStop(1,color+'00');
+  ctx.fillStyle=grad; ctx.fill();
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.lineJoin='round'; ctx.stroke();
+  const last=pts[pts.length-1];
+  ctx.beginPath(); ctx.arc(last.x,last.y,3,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+}
+
+// 隠し株の総合チャートも追加
+function drawSecretOverviewChart() {
+  const canvas = document.getElementById('secret-overview-canvas');
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 500, H = 120;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,0,255,0.1)'; ctx.lineWidth=1;
+  for(let i=1;i<3;i++){const y=(H/3)*i;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  ctx.strokeStyle='rgba(255,0,255,0.2)'; ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();ctx.setLineDash([]);
+  const colors=['#ff00ff','#ff44ff','#cc00cc','#ff77ff','#990099'];
+  SECRET_STOCKS.forEach((s,si)=>{
+    const hist=secretState.history[s.ticker]||[];
+    if(hist.length<2)return;
+    const base=s.base;
+    const norm=hist.map(p=>p/base-1);
+    const allN=SECRET_STOCKS.flatMap(st=>(secretState.history[st.ticker]||[]).map(p=>p/st.base-1));
+    const minN=Math.min(...allN,-0.1),maxN=Math.max(...allN,0.1),rng=maxN-minN||0.2;
+    const color=colors[si%colors.length];
+    const pts=norm.map((v,i)=>({x:(i/(hist.length-1))*W,y:H-((v-minN)/rng)*(H-16)-8}));
+    ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.lineJoin='round';ctx.globalAlpha=0.85;ctx.stroke();ctx.globalAlpha=1;
+    const last=pts[pts.length-1];
+    ctx.beginPath();ctx.arc(last.x,last.y,3,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
   });
 }
 
@@ -3860,6 +3980,25 @@ function renderDarkFeed() {
 
 // initSecretPageにダークオークション・フィードの初期化を追加
 const _origInitSecret = typeof initSecretPage === 'function' ? initSecretPage : null;
+
+
+// ── サイドバー開閉（スマホ用）──
+function toggleSidebar() {
+  const sb = document.getElementById('main-sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  sb.classList.toggle('open');
+  ov.classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('main-sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.remove('open');
+}
+// navTo後にサイドバーを閉じる（スマホ）
+const _origNavTo = window.navTo;
+window.navTo = page => {
+  _origNavTo(page);
+  if (window.innerWidth <= 768) closeSidebar();
+};
 
 function showNotif(msg, type) {
   const el=document.getElementById('notif');
